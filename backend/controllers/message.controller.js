@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { Conversation } from "../models/conversation.model.js";
 import { Message } from "../models/message.model.js";
 import { getRecieverSocketId } from "../socket.io/socket.io.js";
@@ -68,6 +69,17 @@ export const getMessage = async (req, res) => {
     };
     if (before) query._id = { $lt: before };
 
+    // Opening the thread marks messages from the other user as read and
+    // notifies them in realtime (read receipts).
+    const nowRead = await Message.updateMany(
+      { senderId: recieverId, recieverId: senderId, read: false },
+      { $set: { read: true } }
+    );
+    if (nowRead.modifiedCount > 0) {
+      const otherSocketId = getRecieverSocketId(recieverId);
+      if (otherSocketId) io.to(otherSocketId).emit("messagesRead", { by: senderId });
+    }
+
     const page = await Message.find(query).sort({ _id: -1 }).limit(limit + 1);
     const hasMore = page.length > limit;
     if (hasMore) page.pop();
@@ -85,5 +97,23 @@ export const getMessage = async (req, res) => {
       success: false,
       message: "Internal server error",
     });
+  }
+};
+
+
+// GET /api/v1/message/unread — unread message counts grouped by sender
+export const getUnreadCounts = async (req, res) => {
+  try {
+    const counts = await Message.aggregate([
+      { $match: { recieverId: new mongoose.Types.ObjectId(req.id), read: false } },
+      { $group: { _id: "$senderId", count: { $sum: 1 } } },
+    ]);
+    return res.status(200).json({
+      success: true,
+      unread: Object.fromEntries(counts.map((c) => [c._id.toString(), c.count])),
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: "Internal server error" });
   }
 };

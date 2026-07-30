@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import getDataUri from "../utils/datauri.js";
 import cloudinary from "../utils/cloudinary.js";
 import { Post } from "../models/post.model.js";
+import { notify } from "../utils/notify.js";
 
 //register Controller
 export const register = async (req, res) => {
@@ -341,6 +342,13 @@ export const followOrUnfollow = async (req, res) => {
       await User.findByIdAndUpdate(userId, {
         $push: { following: userToFollowOrUnfollowId },
       });
+      // Persisted + realtime notification
+      await notify({
+        recipient: userToFollowOrUnfollowId,
+        sender: userId,
+        type: "follow",
+        text: "started following you",
+      });
       await User.findByIdAndUpdate(userToFollowOrUnfollowId, {
         $push: { followers: userId },
       });
@@ -419,5 +427,19 @@ export const getFollowing = async (req, res) => {
       success: false,
       message: "Internal server error",
     });
+  }
+};
+
+// GET /api/v1/user/me — fresh identity for route guarding / session checks
+export const getMe = async (req, res) => {
+  try {
+    const user = await User.findById(req.id).select("-password");
+    if (!user) {
+      return res.status(404).json({ message: "User not found", success: false });
+    }
+    return res.status(200).json({ success: true, user });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: "Internal server error" });
   }
 };

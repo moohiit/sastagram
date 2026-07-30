@@ -5,6 +5,7 @@ import {
   getFollowers,
   getFollowing,
   getProfile,
+  getMe,
   getSuggestedUsers,
   login, logout, register,
   searchProfile,
@@ -18,6 +19,7 @@ const router = express.Router();
 router.post('/register', register);
 router.post('/login', login);
 router.get('/logout', logout);
+router.get('/me', isAuthenticated, getMe);
 router.get('/:id/profile', isAuthenticated, getProfile);
 router.post('/profile/edit', isAuthenticated, upload.single('profilePicture'), editProfile);
 router.get('/suggested',isAuthenticated, getSuggestedUsers)
