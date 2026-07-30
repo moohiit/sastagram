@@ -4,16 +4,23 @@ import { useDispatch, useSelector } from "react-redux";
 
 const useGetRTM = () => {
   const dispatch = useDispatch();
-  const { socket } = useSelector(store => store.socketio);
-  const { messages } = useSelector(store => store.chat);
+  const { socket } = useSelector((store) => store.socketio);
+
+  // Subscribe once per socket. Reading current messages via getState inside a
+  // thunk avoids re-subscribing on every incoming message (the old [messages]
+  // dependency re-registered the listener each time).
   useEffect(() => {
-    socket?.on('newMessage', (newMessage) => {
-      dispatch(setMessages([...messages, newMessage]))
-    })
+    if (!socket) return;
+    const handler = (newMessage) => {
+      dispatch((d, getState) => {
+        d(setMessages([...getState().chat.messages, newMessage]));
+      });
+    };
+    socket.on("newMessage", handler);
     return () => {
-      socket?.off('newMessage');
-    }
-  }, [messages, setMessages])
-}
+      socket.off("newMessage", handler);
+    };
+  }, [socket, dispatch]);
+};
 
 export default useGetRTM;

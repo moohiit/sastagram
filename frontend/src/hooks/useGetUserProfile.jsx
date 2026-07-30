@@ -6,6 +6,7 @@ import { useDispatch } from "react-redux";
 const useGetUserProfile = (userId) => {
   const dispatch = useDispatch();
   useEffect(() => {
+    if (!userId) return; // allows callers to invoke the hook unconditionally
     const fetchUserProfile = async () => {
       try {
         // console.log("ID",userId);

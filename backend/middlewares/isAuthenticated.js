@@ -20,10 +20,10 @@ export const isAuthenticated = async (req, res, next) => {
     req.id = decoded.userId;
     next();
   } catch (error) {
-    console.error(error);
-    return res.status(500).json({
+    // jwt.verify throws on invalid/expired tokens — that's a 401, not a 500
+    return res.status(401).json({
       success: false,
-      message: error.message,
+      message: "Invalid or expired session. Please log in again.",
     });
   }
 }

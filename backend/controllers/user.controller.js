@@ -8,23 +8,42 @@ import { Post } from "../models/post.model.js";
 //register Controller
 export const register = async (req, res) => {
   try {
-    //Get the data from the request body
-    // console.log(req.body);
     const { username, email, password } = req.body;
-    //Validate the data
-    //Check if all fields are present
-    if (!username || !email || !password) {
-      return res.status(401).json({
+    //Validate the data — require plain strings (guards NoSQL-injection payloads)
+    if (typeof username !== "string" || typeof email !== "string" || typeof password !== "string" ||
+      !username.trim() || !email.trim() || !password) {
+      return res.status(400).json({
         message: "All fields are required",
         success: false,
       });
     }
+    if (!/^[a-zA-Z0-9._-]{3,30}$/.test(username.trim())) {
+      return res.status(400).json({
+        message: "Username must be 3-30 characters (letters, numbers, . _ -)",
+        success: false,
+      });
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      return res.status(400).json({
+        message: "Please enter a valid email address",
+        success: false,
+      });
+    }
+    if (password.length < 8) {
+      return res.status(400).json({
+        message: "Password must be at least 8 characters",
+        success: false,
+      });
+    }
 
-    //check if username already used
-    const existingUsername = await User.findOne({ username });
-    if (existingUsername) {
-      return res.status(401).json({
-        message: "Username already exists! Try with other username",
+    //check if username or email already used
+    const existingUser = await User.findOne({
+      $or: [{ username: username.trim() }, { email: email.trim() }],
+    });
+    if (existingUser) {
+      const field = existingUser.username === username.trim() ? "Username" : "Email";
+      return res.status(409).json({
+        message: `${field} already exists! Try another one`,
         success: false,
       });
     }
@@ -32,8 +51,8 @@ export const register = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     //Create a new user
     await User.create({
-      username,
-      email,
+      username: username.trim(),
+      email: email.trim(),
       password: hashedPassword,
     });
     return res.status(201).json({
@@ -44,7 +63,7 @@ export const register = async (req, res) => {
     console.error(error);
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Internal server error",
     });
   }
 };
@@ -52,13 +71,10 @@ export const register = async (req, res) => {
 //Login Controller
 export const login = async (req, res) => {
   try {
-    //Get the data from the request body
-    console.log(req.body);
     const { email, password } = req.body;
-    //Validate the data
-    // Check if all fields are present
-    if (!email || !password) {
-      return res.status(401).json({
+    //Validate the data — require plain strings (guards NoSQL-injection payloads)
+    if (typeof email !== "string" || typeof password !== "string" || !email || !password) {
+      return res.status(400).json({
         message: "All fields are required",
         success: false,
       });
@@ -71,7 +87,6 @@ export const login = async (req, res) => {
         success: false,
       });
     }
-    console.log(user);
     // Compare the user Password
     const isPasswordMatch = await bcrypt.compare(password, user.password);
     if (!isPasswordMatch) {
@@ -111,6 +126,7 @@ export const login = async (req, res) => {
       .cookie("token", token, {
         httpOnly: true,
         sameSite: "strict",
+        secure: process.env.NODE_ENV === "production",
         maxAge: 1 * 24 * 60 * 60 * 1000,
       })
       .json({
@@ -122,7 +138,7 @@ export const login = async (req, res) => {
     console.error(error);
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Internal server error",
     });
   }
 };
@@ -138,7 +154,7 @@ export const logout = async (req, res) => {
     console.error(error);
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Internal server error",
     });
   }
 };
@@ -163,7 +179,7 @@ export const getProfile = async (req, res) => {
     console.error(error);
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Internal server error",
     });
   }
 };
@@ -187,7 +203,7 @@ export const searchProfile = async (req, res) => {
     console.error(error);
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Internal server error",
     });
   }
 };
@@ -226,7 +242,7 @@ export const editProfile = async (req, res) => {
     console.error(error);
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Internal server error",
     });
   }
 };
@@ -265,7 +281,7 @@ export const getSuggestedUsers = async (req, res) => {
     console.error(error);
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Internal server error",
     });
   }
 };
@@ -331,7 +347,7 @@ export const followOrUnfollow = async (req, res) => {
     console.log(error);
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Internal server error",
     });
   }
 };
@@ -362,7 +378,7 @@ export const getFollowers = async (req, res) => {
     console.log(error);
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Internal server error",
     });
   }
 };
@@ -393,7 +409,7 @@ export const getFollowing = async (req, res) => {
     console.log(error);
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Internal server error",
     });
   }
 };

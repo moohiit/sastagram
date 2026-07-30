@@ -83,14 +83,14 @@ function App() {
   const { user } = useSelector(store => store.auth);
   const { socket } = useSelector(store => store.socketio);
   const dispatch = useDispatch();
-  //https://sastagram-io-app.onrender.com
   useEffect(() => {
     if (user) {
-      const socketio = io("https://sastagram-io-app.onrender.com", {
-        query: {
-          userId: user?._id,
-        },
-        transports: ['websocket']
+      // Same-origin connection: proxied by Vite in dev, served by the backend
+      // itself in production. Identity comes from the httpOnly JWT cookie —
+      // the server no longer trusts a client-supplied userId.
+      const socketio = io("/", {
+        transports: ['websocket'],
+        withCredentials: true,
       });
 
       socketio.on('connect', () => {

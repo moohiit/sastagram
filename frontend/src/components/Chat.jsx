@@ -40,9 +40,8 @@ function Chat() {
   const inputRef = useRef(null);  // Ref for the input field
 
   const userId = params?.id;
-  if (userId) {
-    useGetUserProfile(userId);
-  }
+  // Hooks must not be called conditionally — the hook itself no-ops without an id
+  useGetUserProfile(userId);
 
   useEffect(() => {
     if (userId) {
