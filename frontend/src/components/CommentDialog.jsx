@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogTitle, DialogTrigger, DialogDescription } from './ui/dialog';
 import { Link } from 'react-router-dom';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
-import { Loader2, MoreHorizontal } from 'lucide-react';
+import { Loader2, MoreHorizontal, Trash2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { useDispatch, useSelector } from 'react-redux';
 import { toast } from 'sonner';
@@ -88,6 +88,24 @@ function CommentDialog({ open, setOpen, post }) {
     }
   };
 
+  const deleteCommentHandler = async (commentId) => {
+    try {
+      const response = await axios.delete(`/api/v1/post/comment/${commentId}`, { withCredentials: true });
+      if (response.data.success) {
+        const updatedComments = comments.filter(cmnt => cmnt._id !== response.data.commentId);
+        setComments(updatedComments);
+
+        const updatedPostData = posts.map(p => p._id === post._id ? { ...p, comments: updatedComments } : p);
+        dispatch(setPosts(updatedPostData));
+
+        toast.success('Comment deleted');
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error(error.response?.data?.message || 'Failed to delete comment');
+    }
+  };
+
   const followUnfollowHandler = async (userId) => {
     try {
       const response = await axios.get(`/api/v1/user/followorunfollow/${userId}`, { withCredentials: true });
@@ -163,15 +181,24 @@ function CommentDialog({ open, setOpen, post }) {
             <hr className='bg-slate-100' />
             <div className='flex-1 overflow-auto max-h-96 p-4'>
               {comments.map((cmnt, index) => (
-                <div key={index} className='flex gap-2 items-center'>
+                <div key={cmnt._id || index} className='flex gap-2 items-center group'>
                   <Avatar>
                     <AvatarImage src={cmnt.author?.profilePicture || '/default-profile-picture.jpg'} />
                     <AvatarFallback>MP</AvatarFallback>
                   </Avatar>
-                  <div className='flex flex-col'>
+                  <div className='flex flex-col flex-1'>
                     <span className='font-semibold'>{cmnt.author?.username || 'Anonymous'}</span>
                     <span>{cmnt.text}</span>
                   </div>
+                  {user && (cmnt.author?._id === user._id || post.author?._id === user._id) && (
+                    <button
+                      onClick={() => deleteCommentHandler(cmnt._id)}
+                      title='Delete comment'
+                      className='text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1'
+                    >
+                      <Trash2 className='w-4 h-4' />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>

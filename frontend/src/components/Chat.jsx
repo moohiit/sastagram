@@ -14,18 +14,23 @@ import useGetUserProfile from '@/hooks/useGetUserProfile';
 import { Dialog, DialogContent, DialogTitle } from './ui/dialog';
 import { DialogTrigger } from '@radix-ui/react-dialog';
 
-const SuggestedUserItem = React.memo(({ suggestedUser, isOnline, onClick }) => (
+const SuggestedUserItem = React.memo(({ suggestedUser, isOnline, unreadCount, onClick }) => (
   <div onClick={onClick} className='flex gap-3 items-center p-3 hover:bg-gray-100 cursor-pointer'>
     <Avatar className='w-12 h-12'>
       <AvatarImage src={suggestedUser?.profilePicture} />
       <AvatarFallback>MP</AvatarFallback>
     </Avatar>
-    <div className='flex flex-col'>
+    <div className='flex flex-col flex-1'>
       <span className='font-medium text-sm'>{suggestedUser?.username}</span>
       <span className={`text-xs font-bold ${isOnline ? 'text-green-600' : 'text-red-600'}`}>
         {isOnline ? 'Online' : 'Offline'}
       </span>
     </div>
+    {unreadCount > 0 && (
+      <span className='bg-red-600 text-white text-xs font-bold rounded-full min-w-5 h-5 px-1 flex items-center justify-center'>
+        {unreadCount}
+      </span>
+    )}
   </div>
 ));
 
@@ -34,10 +39,61 @@ function Chat() {
   const dispatch = useDispatch();
   const { user, followings, selectedUser, userProfile } = useSelector(store => store.auth);
   const { onlineUsers, messages } = useSelector(store => store.chat);
+  const { socket } = useSelector(store => store.socketio);
 
   const [message, setMessage] = useState('');
   const [open, setOpen] = useState(false);
+  const [unread, setUnread] = useState({}); // { [senderUserId]: count }
   const inputRef = useRef(null);  // Ref for the input field
+  const selectedUserIdRef = useRef(null); // Avoid stale closures in socket handlers
+  selectedUserIdRef.current = selectedUser?._id || null;
+
+  // Initial unread counts per sender
+  useEffect(() => {
+    let cancelled = false;
+    const fetchUnread = async () => {
+      try {
+        const response = await axios.get('/api/v1/message/unread', { withCredentials: true });
+        if (!cancelled && response.data.success) {
+          setUnread(response.data.unread || {});
+        }
+      } catch (error) {
+        console.log(error);
+      }
+    };
+    fetchUnread();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Live badge updates: bump the sender's count unless their thread is open.
+  // "messagesRead" (the other user read our messages) needs no UI here yet.
+  useEffect(() => {
+    if (!socket) return;
+    const onNewMessage = (newMessage) => {
+      const senderId = newMessage?.senderId;
+      if (!senderId || senderId === selectedUserIdRef.current) return;
+      setUnread(prev => ({ ...prev, [senderId]: (prev[senderId] || 0) + 1 }));
+    };
+    const onMessagesRead = () => { /* read receipts not surfaced in UI yet */ };
+    socket.on('newMessage', onNewMessage);
+    socket.on('messagesRead', onMessagesRead);
+    return () => {
+      socket.off('newMessage', onNewMessage);
+      socket.off('messagesRead', onMessagesRead);
+    };
+  }, [socket]);
+
+  // Opening a thread clears that user's badge
+  useEffect(() => {
+    const id = selectedUser?._id;
+    if (!id) return;
+    setUnread(prev => {
+      if (!prev[id]) return prev;
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+  }, [selectedUser?._id]);
 
   const userId = params?.id;
   // Hooks must not be called conditionally — the hook itself no-ops without an id
@@ -114,6 +170,7 @@ function Chat() {
                     key={followingUser?._id}
                     suggestedUser={followingUser}
                     isOnline={followingUser.isOnline}
+                    unreadCount={unread[followingUser?._id] || 0}
                     onClick={() => handleUserSelect(followingUser)}
                   />
                 ))}

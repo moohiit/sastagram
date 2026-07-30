@@ -14,7 +14,8 @@ import { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { setSocket } from './redux/socketSlice';
 import { setOnlineUsers } from './redux/chatSlice';
-import { setLiveNotification } from './redux/rtnSlice';
+import { addNotification, setNotifications } from './redux/rtnSlice';
+import axios from 'axios';
 import ProtectedRoutes from './components/ProtectedRoutes';
 import Followers from './components/Followers';
 import Following from './components/Following';
@@ -103,8 +104,10 @@ function App() {
         console.log('Online Users:', onlineUsers);
         dispatch(setOnlineUsers(onlineUsers));
       });
+      // The server now emits the full persisted notification object
+      // ({_id, sender, type, post, text, read, createdAt})
       socketio.on('notification', (notification) => {
-        dispatch(setLiveNotification(notification))
+        dispatch(addNotification(notification))
       })
       return () => {
         socketio.close();
@@ -117,6 +120,25 @@ function App() {
       console.log('Socket closed due to user logout');
     }
   }, [user, dispatch]);
+
+  // Load persisted notifications once the user is logged in
+  useEffect(() => {
+    if (!user) return;
+    const fetchNotifications = async () => {
+      try {
+        const response = await axios.get('/api/v1/notification?limit=20', { withCredentials: true });
+        if (response.data.success) {
+          dispatch(setNotifications({
+            notifications: response.data.notifications,
+            unreadCount: response.data.unreadCount,
+          }));
+        }
+      } catch (error) {
+        console.log(error);
+      }
+    };
+    fetchNotifications();
+  }, [user?._id, dispatch]);
 
   return (
     <>

@@ -11,14 +11,26 @@ import { setPosts } from '@/redux/postSlice';
 import { setMessages, setOnlineUsers } from '@/redux/chatSlice';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Button } from './ui/button';
-import { setLiveNotification } from '@/redux/rtnSlice';
+import { clearNotifications, markAllRead } from '@/redux/rtnSlice';
+import NotificationItem from './NotificationItem';
 
 function LeftSidebar({ collapsed, setCollapsed }) {
   const navigate = useNavigate();
   const { user } = useSelector(store => store.auth);
-  const { liveNotification } = useSelector(store => store.notification);
+  const { notifications, unreadCount } = useSelector(store => store.notification);
   const dispatch = useDispatch();
   const [open, setOpen] = useState(false);
+  const [notifOpen, setNotifOpen] = useState(false);
+
+  // Mark everything read on the server and zero the badge
+  const markNotificationsRead = async () => {
+    dispatch(markAllRead());
+    try {
+      await axios.patch('/api/v1/notification/read', {}, { withCredentials: true });
+    } catch (error) {
+      console.log(error);
+    }
+  };
 
   useEffect(() => {
     // Collapsed by default on small screens (mobile)
@@ -42,7 +54,7 @@ function LeftSidebar({ collapsed, setCollapsed }) {
         dispatch(setMessages([]));
         dispatch(setOnlineUsers([]));
         dispatch(setSelectedUser(null));
-        dispatch(setLiveNotification([]));
+        dispatch(clearNotifications());
         toast.success(response.data.message);
         navigate('/login');
       }
@@ -122,49 +134,27 @@ function LeftSidebar({ collapsed, setCollapsed }) {
               <div className='mr-2'>{item.icon}</div>
               {!collapsed && <span>{item.text}</span>}
               {
-                item.text === "Notifications" && liveNotification.length > 0 && (
-                  <Popover onOpenChange={(open) => {
-                    if (!open) {
-                      dispatch(setLiveNotification(null));
+                item.text === "Notifications" && (unreadCount > 0 || notifOpen) && (
+                  <Popover open={notifOpen} onOpenChange={(isOpen) => {
+                    setNotifOpen(isOpen);
+                    if (isOpen) {
+                      markNotificationsRead();
                     }
                   }}>
                     <PopoverTrigger asChild>
                       <div>
-                        <Button size="icon" className='rounded-full w-5 h-5 absolute bg-red-600 hover:bg-red-600 bottom-6 left-6'>{liveNotification.length}</Button>
+                        <Button size="icon" className='rounded-full w-5 h-5 absolute bg-red-600 hover:bg-red-600 bottom-6 left-6'>{unreadCount}</Button>
                       </div>
                     </PopoverTrigger>
-                    <PopoverContent >
-                      <div className=''>
+                    <PopoverContent className='max-h-96 overflow-y-auto'>
+                      <div>
                         {
-                          liveNotification.length === 0 ? (
+                          notifications.length === 0 ? (
                             <p>No new notification</p>
                           ) : (
-                            liveNotification.map((notification) => {
-                              return (
-                                <div key={notification.userId} className='flex gap-2 items-center my-1 w-full'>
-                                  <Avatar>
-                                    <AvatarImage src={notification.userDetails?.profilePicture} />
-                                    <AvatarFallback>MP</AvatarFallback>
-                                  </Avatar>
-                                  <p className='text-sm'>
-                                    <span className='font-bold mr-1'>{notification.userDetails?.username}</span>
-                                    {
-                                      notification?.type === "like" && <span className='font-semibold text-sm'>liked your post</span>
-                                    }
-                                    {
-                                      notification?.type === "dislike" && <span className='font-semibold text-sm'>disliked your post</span>
-                                    }
-                                    {
-                                      notification?.type === "comment" && <p>
-                                        <span className='font-semibold text-sm' >commented on your post</span>
-                                        <br />
-                                        <span className='text-gray-500 font-medium'>{notification?.message}</span>
-                                      </p>
-                                    }
-                                  </p>
-                                </div>
-                              )
-                            })
+                            notifications.map((notification) => (
+                              <NotificationItem key={notification._id} notification={notification} />
+                            ))
                           )
                         }
                       </div>
