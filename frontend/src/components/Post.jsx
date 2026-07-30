@@ -1,5 +1,6 @@
 
 import React, { useEffect, useState } from 'react'
+import { cdn } from '@/lib/cdn'
 import { Avatar, AvatarImage, AvatarFallback } from './ui/avatar'
 import { Badge } from './ui/badge'
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from './ui/dialog'
@@ -218,7 +219,7 @@ function Post({ post }) {
           </DialogContent>
         </Dialog>
       </div>
-      <img className='rounded-sm my-2 w-full aspect-square object-cover' src={post?.image} alt="post_Image" />
+      <img className='rounded-sm my-2 w-full aspect-square object-cover' src={cdn(post?.image, 800)} alt="post_Image" loading="lazy" />
       <div className='flex justify-between'>
         <div className='flex gap-3'>
           {

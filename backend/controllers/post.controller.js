@@ -80,33 +80,38 @@ export const addNewPost = async (req, res) => {
   }
 };
 
-// Get all Posts controller
+// Get all Posts controller — cursor-paginated (?cursor=<lastPostId>&limit=10)
 export const getAllPost = async (req, res) => {
   try {
-    const posts = await Post.find()
-      .sort({ createdAt: -1 })
+    const limit = Math.min(parseInt(req.query.limit, 10) || 10, 30);
+    const { cursor } = req.query;
+    const query = cursor ? { _id: { $lt: cursor } } : {};
+
+    // Fetch one extra to know whether another page exists
+    const posts = await Post.find(query)
+      .sort({ _id: -1 })
+      .limit(limit + 1)
       .populate({
         path: "author",
         select: "username profilePicture",
       })
       .populate({
         path: "comments",
-        sort: { createdAt: -1 },
+        options: { sort: { createdAt: -1 } },
         populate: {
           path: "author",
           select: "username profilePicture",
         },
       });
-    if (!posts) {
-      return res.status(500).json({
-        message: "Error fetching posts",
-        success: false,
-      });
-    }
+
+    const hasMore = posts.length > limit;
+    if (hasMore) posts.pop();
+
     return res.status(200).json({
       message: "Posts fetched successfully",
       success: true,
       posts,
+      nextCursor: hasMore ? posts[posts.length - 1]._id : null,
     });
   } catch (error) {
     console.error(error);
@@ -129,7 +134,7 @@ export const getUserPost = async (req, res) => {
       })
       .populate({
         path: "comments",
-        sort: { createdAt: -1 },
+        options: { sort: { createdAt: -1 } },
         populate: {
           path: "author",
           select: "username profilePicture",
@@ -167,9 +172,8 @@ export const likePost = async (req, res) => {
         success: false,
       });
     }
-    //like logic
+    //like logic (atomic — no extra save needed)
     await post.updateOne({ $addToSet: { likes: likerId } });
-    await post.save();
     //Socket.io logic goes here for realtime effect
     const user = await User.findById(likerId).select("username profilePicture");
     const postOwnerId = post.author.toString();
@@ -183,7 +187,7 @@ export const likePost = async (req, res) => {
         message: "Your post was liked",
       };
       const postOwnerSocketId = getRecieverSocketId(postOwnerId);
-      io.to(postOwnerSocketId).emit("notification", notification);
+      if (postOwnerSocketId) io.to(postOwnerSocketId).emit("notification", notification);
     }
 
     //return response
@@ -212,9 +216,8 @@ export const dislikePost = async (req, res) => {
         success: false,
       });
     }
-    //Dislike logic
+    //Dislike logic (atomic — no extra save needed)
     await post.updateOne({ $pull: { likes: dislikerId } });
-    await post.save();
 
     //Socket.io logic goes here for realtime effect
     const user = await User.findById(dislikerId).select(
@@ -231,7 +234,7 @@ export const dislikePost = async (req, res) => {
         message: "Your post was disliked",
       };
       const postOwnerSocketId = getRecieverSocketId(postOwnerId);
-      io.to(postOwnerSocketId).emit("notification", notification);
+      if (postOwnerSocketId) io.to(postOwnerSocketId).emit("notification", notification);
     }
     //end
 
@@ -300,7 +303,7 @@ export const addComment = async (req, res) => {
         message: text,
       };
       const postOwnerSocketId = getRecieverSocketId(postOwnerId);
-      io.to(postOwnerSocketId).emit("notification", notification);
+      if (postOwnerSocketId) io.to(postOwnerSocketId).emit("notification", notification);
     }
     return res.status(201).json({
       message: "Comment added successfully",
@@ -368,6 +371,15 @@ export const deletePost = async (req, res) => {
 
     //delete the post
     await Post.findByIdAndDelete(postId);
+
+    // Delete the image from Cloudinary (public_id = last URL segment sans extension)
+    try {
+      const publicId = post.image.split("/").pop().split(".")[0];
+      if (publicId) await cloudinary.uploader.destroy(publicId);
+    } catch (e) {
+      console.error("Cloudinary cleanup failed:", e.message);
+    }
+
     //now also remove post id from user post
     let user = await User.findById(authorId);
     user.posts = user.posts.filter((id) => id.toString() !== postId);

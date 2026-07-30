@@ -4,17 +4,24 @@ const postSlice = createSlice({
   name: "post",
   initialState: {
     posts: [],
-    // selectedPost:null,
+    nextCursor: null,
+    hasFetched: false,
   },
   reducers: {
-    //actions
     setPosts: (state, action) => {
       state.posts = action.payload;
     },
-    // setSelectedPost: (state, action) => {
-    //   state.selectedPost = action.payload;
-    // },
+    setFeedPage: (state, action) => {
+      state.posts = action.payload.posts;
+      state.nextCursor = action.payload.nextCursor ?? null;
+      state.hasFetched = true;
+    },
+    appendFeedPage: (state, action) => {
+      const seen = new Set(state.posts.map((p) => p._id));
+      state.posts.push(...action.payload.posts.filter((p) => !seen.has(p._id)));
+      state.nextCursor = action.payload.nextCursor ?? null;
+    },
   },
 });
-export const { setPosts } = postSlice.actions;
+export const { setPosts, setFeedPage, appendFeedPage } = postSlice.actions;
 export default postSlice.reducer;

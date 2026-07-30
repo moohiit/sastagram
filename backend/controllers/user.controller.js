@@ -96,16 +96,10 @@ export const login = async (req, res) => {
       });
     }
 
-    //populate each post if in the post array
-    const populatedPosts = await Promise.all(
-      user.posts.map(async (postId) => {
-        const post = await Post.findById(postId).populate("author");
-        if (post.author.equals(user._id)) {
-          return post;
-        }
-        return null;
-      })
-    );
+    // Single query instead of one findById per post (N+1)
+    const populatedPosts = await Post.find({ author: user._id })
+      .sort({ _id: -1 })
+      .populate({ path: "author", select: "username profilePicture" });
 
     user = {
       _id: user._id,
@@ -163,14 +157,17 @@ export const logout = async (req, res) => {
 export const getProfile = async (req, res) => {
   try {
     const userId = req.params.id;
-    const user = await User.findById(userId)
+    const isOwnProfile = userId === req.id;
+    let query = User.findById(userId)
       .populate({
         path: "posts",
-        createdAt: -1,
+        options: { sort: { createdAt: -1 } },
       })
-      .populate("bookmarks")
       .select("-password");
-    // console.log(user);
+    // Bookmarks are private — only include them on your own profile
+    if (isOwnProfile) query = query.populate("bookmarks");
+    const user = await query;
+    if (user && !isOwnProfile) user.bookmarks = undefined;
     return res.status(200).json({
       user,
       success: true,
@@ -190,11 +187,11 @@ export const searchProfile = async (req, res) => {
     const user = await User.findOne({ username: username })
       .populate({
         path: "posts",
-        createdAt: -1,
+        options: { sort: { createdAt: -1 } },
       })
-      .populate("bookmarks")
       .select("-password");
-    // console.log(user);
+    // Bookmarks are private — never exposed via username search
+    if (user && user._id.toString() !== req.id) user.bookmarks = undefined;
     return res.status(200).json({
       user,
       success: true,
@@ -216,7 +213,13 @@ export const editProfile = async (req, res) => {
     const profilePicture = req.file;
     let cloudResponse;
     if (profilePicture) {
-      const fileUri = getDataUri(profilePicture);
+      // Optimize avatars the same way post images are optimized
+      const sharp = (await import("sharp")).default;
+      const optimized = await sharp(profilePicture.buffer)
+        .resize(400, 400, { fit: "cover" })
+        .toFormat("jpeg", { quality: 85 })
+        .toBuffer();
+      const fileUri = `data:image/jpeg;base64,${optimized.toString("base64")}`;
       cloudResponse = await cloudinary.uploader.upload(fileUri);
     }
     const user = await User.findById(userId).select("-password");
@@ -260,10 +263,15 @@ export const getSuggestedUsers = async (req, res) => {
       });
     }
 
-    // Exclude the logged-in user and the users they are following
+    // Exclude the logged-in user and the users they are following.
+    // Capped + minimal fields — this used to return every user in the DB
+    // with all their arrays.
+    const limit = Math.min(parseInt(req.query.limit, 10) || 8, 20);
     const suggestedUsers = await User.find({
       _id: { $nin: [...user.following, req.id] },
-    }).select("-password");
+    })
+      .select("username profilePicture bio")
+      .limit(limit);
 
     if (suggestedUsers.length === 0) {
       return res.status(404).json({

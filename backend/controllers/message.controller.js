@@ -50,26 +50,33 @@ export const sendMessage = async (req, res) => {
   }
 };
 
-//get message controller
+//get message controller — paginated (?limit=30&before=<messageId>)
 export const getMessage = async (req, res) => {
   try {
     const senderId = req.id;
     const recieverId = req.params.id;
-    const conversation = await Conversation.findOne({
-      participants: {
-        $all: [senderId, recieverId],
-      },
-    }).populate("messages");
-    if (!conversation) {
-      return res.status(200).json({
-        messages: [],
-        message:"No messages till now",
-        success: true,
-      });
-    }
+    const limit = Math.min(parseInt(req.query.limit, 10) || 30, 100);
+    const { before } = req.query;
+
+    // Query the Message collection directly (indexed) instead of populating
+    // a conversation's entire embedded history.
+    const query = {
+      $or: [
+        { senderId, recieverId },
+        { senderId: recieverId, recieverId: senderId },
+      ],
+    };
+    if (before) query._id = { $lt: before };
+
+    const page = await Message.find(query).sort({ _id: -1 }).limit(limit + 1);
+    const hasMore = page.length > limit;
+    if (hasMore) page.pop();
+    page.reverse(); // chronological order for the client
+
     return res.status(200).json({
-      messages: conversation?.messages,
-      message:"All messages fetched successfully",
+      messages: page,
+      prevCursor: hasMore ? page[0]._id : null,
+      message: "Messages fetched successfully",
       success: true,
     });
   } catch (error) {

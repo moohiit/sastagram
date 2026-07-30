@@ -1,4 +1,5 @@
 import useGetUserProfile from '@/hooks/useGetUserProfile';
+import { cdn } from '@/lib/cdn'
 import React, { useState } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
 import { Link, useParams } from 'react-router-dom';
@@ -126,7 +127,7 @@ const Profile = () => {
               postsToDisplay?.map((post) => {
                 return (
                   <div key={post?._id} className='relative group cursor-pointer'>
-                    <img src={post?.image} alt="Post Image" className='rounded-sm w-full aspect-square object-cover' />
+                    <img src={cdn(post?.image, 500)} alt="Post Image" loading="lazy" className='rounded-sm w-full aspect-square object-cover' />
                     <div className='absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300'>
                       <div className='flex items-center text-white space-x-4'>
                         <button className='flex items-center gap-2 hover:text-gray-300'>

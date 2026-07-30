@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { cdn } from '@/lib/cdn'
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogTitle, DialogTrigger, DialogDescription } from './ui/dialog';
 import { Link } from 'react-router-dom';
@@ -111,7 +112,7 @@ function CommentDialog({ open, setOpen, post }) {
         <DialogTitle className='flex text-center pt-2 align-middle justify-center items-center '>Comments</DialogTitle>
         <div className='flex flex-1'>
           <div className='flex w-1/2'>
-            <img src={post.image} alt="Image" className='rounded-sm p-2 w-full aspect-square object-cover' />
+            <img src={cdn(post.image, 800)} alt="Image" loading="lazy" className='rounded-sm p-2 w-full aspect-square object-cover' />
           </div>
           <div className='flex w-1/2 flex-col justify-between'>
             <div className='flex justify-between p-4'>
