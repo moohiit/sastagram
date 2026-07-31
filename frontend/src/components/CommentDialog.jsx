@@ -1,198 +1,203 @@
-import { useEffect } from 'react';
-import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogTitle, DialogTrigger, DialogDescription } from './ui/dialog';
-import { Link } from 'react-router-dom';
-import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
-import { Loader2, MoreHorizontal } from 'lucide-react';
-import { Button } from './ui/button';
-import { useDispatch, useSelector } from 'react-redux';
-import { toast } from 'sonner';
-import axios from 'axios';
-import { setPosts } from '@/redux/postSlice';
-import { setAuthUser } from '@/redux/authSlice'; // Make sure you import this
+import React, { useEffect, useState } from 'react'
+import axios from 'axios'
+import { toast } from 'sonner'
+import { Link } from 'react-router-dom'
+import { useDispatch, useSelector } from 'react-redux'
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from './ui/dialog'
+import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
+import { Trash2 } from 'lucide-react'
+import { cdn } from '@/lib/cdn'
+import { timeAgo } from '@/lib/utils'
+import { setPosts } from '@/redux/postSlice'
+import useRequireLogin from '@/hooks/useRequireLogin'
 
+// Instagram-style comments dialog: image left / thread right on desktop,
+// stacked on mobile. Keeps redux feed state in sync; also works for posts
+// that are not in the feed slice (e.g. opened from Explore) via local state.
 function CommentDialog({ open, setOpen, post }) {
-  const { posts } = useSelector(store => store.post);
-  const { user } = useSelector(store => store.auth);
-  const [comment, setComment] = useState("");
-  const [comments, setComments] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [bookmarked, setBookmarked] = useState(user?.bookmarks.includes(post._id));
+  const { posts } = useSelector((store) => store.post)
+  const { user } = useSelector((store) => store.auth)
+  const dispatch = useDispatch()
+  const requireLogin = useRequireLogin()
+
+  const feedPost = posts.find((p) => p._id === post._id)
+  const [localComments, setLocalComments] = useState(post.comments || [])
+  const comments = feedPost ? feedPost.comments || [] : localComments
+
+  const [comment, setComment] = useState('')
+
   useEffect(() => {
-    setComments(post.comments);
-  }, [post]);
+    setLocalComments(post.comments || [])
+  }, [post])
 
-  const dispatch = useDispatch();
-
-  const isFollowing = user?.following.includes(post.author?._id);
-
-  const commentHandler = (e) => {
-    const inputText = e.target.value;
-    setComment(inputText.trim() ? inputText : "");
-  };
+  const syncComments = (updatedComments) => {
+    setLocalComments(updatedComments)
+    if (feedPost) {
+      dispatch(
+        setPosts(posts.map((p) => (p._id === post._id ? { ...p, comments: updatedComments } : p)))
+      )
+    }
+  }
 
   const sendComment = async () => {
+    if (!requireLogin()) return
+    const text = comment.trim()
+    if (!text) return
     try {
-      const response = await axios.post(`/api/v1/post/${post._id}/comment`, { text: comment }, { withCredentials: true });
+      const response = await axios.post(
+        `/api/v1/post/${post._id}/comment`,
+        { text },
+        { withCredentials: true }
+      )
       if (response.data.success) {
-        const updatedComments = [...comments, response.data.comment];
-        setComments(updatedComments);
-
-        const updatedPostData = posts.map(p => p._id === post._id ? { ...p, comments: updatedComments } : p);
-        dispatch(setPosts(updatedPostData));
-
-        setComment('');
-        toast.success(response.data.message);
+        syncComments([...comments, response.data.comment])
+        setComment('')
       }
     } catch (error) {
-      console.error(error);
-      toast.error(error.response.data.message);
+      console.error(error)
+      toast.error(error.response?.data?.message || 'Could not add comment')
     }
-  };
+  }
 
-  const bookmarkHandler = async () => {  // Corrected function name
+  const deleteCommentHandler = async (commentId) => {
+    if (!requireLogin()) return
     try {
-      const response = await axios.get(`/api/v1/post/${post?._id}/bookmark`, { withCredentials: true });
-      if (response?.data.success) {
-        const newBookmarks = response.data?.type === 'saved'
-          ? [...user.bookmarks, post._id]
-          : user.bookmarks.filter(bmrk => bmrk !== post._id);
-        setBookmarked(response.data?.type === 'saved');
-        dispatch(setAuthUser({ ...user, bookmarks: newBookmarks }));
-        toast.success(response.data.message);
-      }
-    } catch (error) {
-      console.error(error);
-      toast.error(error.response.data.message);
-    }
-  };
-
-  const deletePostHandler = async () => {
-    try {
-      setLoading(true);
-      const postId = post._id;
-      const newPosts = posts.filter(pos => pos._id !== postId);
-
-      const response = await axios.delete(`/api/v1/post/delete/${post._id}`, { withCredentials: true });
+      const response = await axios.delete(`/api/v1/post/comment/${commentId}`, {
+        withCredentials: true,
+      })
       if (response.data.success) {
-        dispatch(setPosts([...newPosts]));
-        toast.success(response.data.message);
-        setOpen(false);
+        syncComments(comments.filter((cmnt) => cmnt._id !== response.data.commentId))
+        toast.success('Comment deleted')
       }
     } catch (error) {
-      console.error(error);
-      toast.error(error.response.data.message);
-    } finally {
-      setLoading(false);
+      console.error(error)
+      toast.error(error.response?.data?.message || 'Failed to delete comment')
     }
-  };
+  }
 
-  const followUnfollowHandler = async (userId) => {
-    try {
-      const response = await axios.get(`/api/v1/user/followorunfollow/${userId}`, { withCredentials: true });
-      if (response.data.success) {
-        const newFollowingData = response.data.type === 'follow'
-          ? [...user?.following, userId]
-          : user?.following.filter(id => id !== userId);
-
-        dispatch(setAuthUser({ ...user, following: newFollowingData }));
-        toast.success(response.data.message);
-      }
-    } catch (error) {
-      console.error(error);
-      toast.error(error.response?.data?.message || 'Something went wrong!');
-    }
-  };
+  const fallbackInitials = (username) => (username || 'U').slice(0, 2).toUpperCase()
 
   return (
-    <Dialog open={open}>
-      <DialogContent onInteractOutside={() => setOpen(false)} className='max-w-5xl p-0 flex flex-col'>
-        <DialogDescription className='hidden'>This is comments section of a post.</DialogDescription>
-        <DialogTitle className='flex text-center pt-2 align-middle justify-center items-center '>Comments</DialogTitle>
-        <div className='flex flex-1'>
-          <div className='flex w-1/2'>
-            <img src={post.image} alt="Image" className='rounded-sm p-2 w-full aspect-square object-cover' />
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent className='max-w-4xl p-0 gap-0 overflow-hidden rounded-lg'>
+        <DialogTitle className='hidden'>Comments</DialogTitle>
+        <DialogDescription className='hidden'>Comments on this post.</DialogDescription>
+        <div className='flex flex-col md:flex-row max-h-[85vh]'>
+          {/* Image */}
+          <div className='bg-black md:w-1/2 shrink-0 flex items-center justify-center'>
+            <img
+              src={cdn(post.image, 800)}
+              alt='Post'
+              loading='lazy'
+              className='w-full object-cover max-h-[35vh] md:max-h-none md:aspect-square'
+            />
           </div>
-          <div className='flex w-1/2 flex-col justify-between'>
-            <div className='flex justify-between p-4'>
-              <div className='flex gap-3 items-center'>
-                <Link>
-                  <Avatar>
-                    <AvatarImage src={post.author?.profilePicture || '/default-profile-picture.jpg'} />
-                    <AvatarFallback>MP</AvatarFallback>
-                  </Avatar>
-                </Link>
-                <div>
-                  <Link className='font-semibold text-sm'>{post.author?.username || 'Anonymous'}</Link>
-                </div>
-              </div>
-              <Dialog>
-                <DialogTrigger className='cursor-pointer select-none'>
-                  <MoreHorizontal />
-                </DialogTrigger>
-                <DialogContent className='flex flex-col p-0 gap-0 items-center text-sm'>
-                  <DialogDescription className='hidden'>Options for the post deletion and follow/unfollow.</DialogDescription>
-                  <Button onClick={bookmarkHandler} variant='secondary' className='cursor-pointer bg-slate-100 m-[1px] w-full text-gray-500 hover:bg-slate-200 '>
-                    Add to favorites
-                  </Button>
-                  {user && user._id !== post.author._id && (
-                    <Button
-                      variant='secondary'
-                      onClick={() => followUnfollowHandler(post.author._id)}
-                      className={`cursor-pointer bg-slate-100 m-[1px] w-full hover:bg-slate-200  ${isFollowing ? 'text-[#f83b3b] hover:text-[#f53131]' : 'text-[#3BADF8] hover:text-[#31bdf5]'}`}
-                    >
-                      {isFollowing ? "Unfollow" : "Follow"}
-                    </Button>
-                  )}
-                  {user && user._id === post.author._id && (
-                    loading ? (
-                      <Button disabled>
-                        <Loader2 className='mr-2 h-4 w-4 animate-spin' />
-                        Deleting...
-                      </Button>
-                    ) : (
-                      <Button onClick={deletePostHandler} variant='ghost' className='cursor-pointer bg-slate-100 m-[1px] w-full text-[red]'>
-                        Delete
-                      </Button>
-                    )
-                  )}
-                </DialogContent>
-              </Dialog>
+
+          {/* Thread */}
+          <div className='flex flex-col md:w-1/2 min-h-0 max-h-[85vh]'>
+            {/* Header */}
+            <div className='flex items-center gap-3 p-3 border-b border-gray-200'>
+              <Link to={`/profile/${post.author?._id}`}>
+                <Avatar className='h-8 w-8'>
+                  <AvatarImage src={post.author?.profilePicture} alt={post.author?.username} />
+                  <AvatarFallback>{fallbackInitials(post.author?.username)}</AvatarFallback>
+                </Avatar>
+              </Link>
+              <Link
+                to={`/profile/${post.author?._id}`}
+                className='text-sm font-semibold text-gray-900 hover:opacity-70'
+              >
+                {post.author?.username || 'Anonymous'}
+              </Link>
             </div>
-            <hr className='bg-slate-100' />
-            <div className='flex-1 overflow-auto max-h-96 p-4'>
-              {comments.map((cmnt, index) => (
-                <div key={index} className='flex gap-2 items-center'>
-                  <Avatar>
-                    <AvatarImage src={cmnt.author?.profilePicture || '/default-profile-picture.jpg'} />
-                    <AvatarFallback>MP</AvatarFallback>
+
+            {/* Comment list */}
+            <div className='flex-1 overflow-y-auto p-3 space-y-4 min-h-[200px] max-h-[50vh] md:max-h-none'>
+              {post.caption && (
+                <div className='flex gap-3'>
+                  <Avatar className='h-8 w-8 shrink-0'>
+                    <AvatarImage src={post.author?.profilePicture} alt={post.author?.username} />
+                    <AvatarFallback>{fallbackInitials(post.author?.username)}</AvatarFallback>
                   </Avatar>
-                  <div className='flex flex-col'>
-                    <span className='font-semibold'>{cmnt.author?.username || 'Anonymous'}</span>
-                    <span>{cmnt.text}</span>
+                  <p className='text-sm text-gray-900'>
+                    <span className='font-semibold mr-1.5'>{post.author?.username}</span>
+                    {post.caption}
+                    <span className='block text-xs text-gray-400 mt-1'>{timeAgo(post.createdAt)}</span>
+                  </p>
+                </div>
+              )}
+
+              {comments.length === 0 && !post.caption && (
+                <p className='text-sm text-gray-500 text-center pt-8'>
+                  No comments yet. Start the conversation.
+                </p>
+              )}
+
+              {comments.map((cmnt, index) => (
+                <div key={cmnt._id || index} className='flex gap-3 group'>
+                  <Link to={`/profile/${cmnt.author?._id}`} className='shrink-0'>
+                    <Avatar className='h-8 w-8'>
+                      <AvatarImage src={cmnt.author?.profilePicture} alt={cmnt.author?.username} />
+                      <AvatarFallback>{fallbackInitials(cmnt.author?.username)}</AvatarFallback>
+                    </Avatar>
+                  </Link>
+                  <div className='flex-1 min-w-0'>
+                    <p className='text-sm text-gray-900 break-words'>
+                      <Link
+                        to={`/profile/${cmnt.author?._id}`}
+                        className='font-semibold mr-1.5 hover:opacity-70'
+                      >
+                        {cmnt.author?.username || 'Anonymous'}
+                      </Link>
+                      {cmnt.text}
+                    </p>
+                    <span className='text-xs text-gray-400'>{timeAgo(cmnt.createdAt)}</span>
                   </div>
+                  {user && (cmnt.author?._id === user._id || post.author?._id === user._id) && (
+                    <button
+                      onClick={() => deleteCommentHandler(cmnt._id)}
+                      title='Delete comment'
+                      className='text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity self-start p-1 cursor-pointer'
+                    >
+                      <Trash2 className='w-4 h-4' />
+                    </button>
+                  )}
                 </div>
               ))}
             </div>
-            <div className='p-4'>
-              <div className='flex items-center gap-2'>
-                <input
-                  type="text"
-                  value={comment}
-                  onChange={commentHandler}
-                  placeholder='Add a comment'
-                  className='w-full outline-none border border-gray-300 p-2 rounded'
-                />
-                <Button disabled={!comment.trim()} onClick={sendComment} variant='outline' className='border border-gray-300'>
-                  Send
-                </Button>
-              </div>
+
+            {/* Add comment */}
+            <div className='flex items-center gap-2 border-t border-gray-200 p-3'>
+              <input
+                type='text'
+                value={comment}
+                readOnly={!user}
+                onFocus={(e) => {
+                  if (!user) {
+                    e.target.blur()
+                    requireLogin()
+                  }
+                }}
+                onChange={(e) => setComment(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') sendComment()
+                }}
+                placeholder={user ? 'Add a comment...' : 'Log in to comment'}
+                className='flex-1 outline-none text-sm text-gray-900 placeholder:text-gray-400 bg-transparent'
+              />
+              <button
+                onClick={sendComment}
+                disabled={!comment.trim()}
+                className='text-sm font-semibold text-blue-500 hover:text-blue-700 disabled:opacity-40 disabled:cursor-default cursor-pointer'
+              >
+                Post
+              </button>
             </div>
           </div>
         </div>
       </DialogContent>
     </Dialog>
-  );
+  )
 }
 
-export default CommentDialog;
+export default CommentDialog

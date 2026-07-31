@@ -1,46 +1,35 @@
-import React from 'react'
-import { useSelector } from 'react-redux';
-import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
+import React, { useEffect } from 'react';
+import axios from 'axios';
+import { useDispatch, useSelector } from 'react-redux';
+import { markAllRead } from '@/redux/rtnSlice';
+import NotificationItem from './NotificationItem';
 
 export default function Notifications() {
-  const { liveNotification } = useSelector(store => store.notification);
+  const { notifications, unreadCount } = useSelector(store => store.notification);
+  const dispatch = useDispatch();
+
+  // Opening the notifications page marks everything read
+  useEffect(() => {
+    if (unreadCount === 0) return;
+    dispatch(markAllRead());
+    axios.patch('/api/v1/notification/read', {}, { withCredentials: true })
+      .catch((error) => console.log(error));
+  }, []);
+
   return (
-    <div className='flex flex-col w-[95%] bg-slate-50 h-screen border shadow-md '>
-      <div className='font-bold text-3xl text-gray-600 m-8 '>Notifactions</div>
-      <div className='m-8 bg-slate-200 flex flex-col gap-2 mt-3 rounded-lg p-5 border border-gray-300 max-w-screen-sm'>
-        {
-          liveNotification.length === 0 ? (
-            <p>No new notification</p>
-          ) : (
-            liveNotification?.map((notification) => {
-              return (
-                <div key={notification.userId} className='flex gap-2 rounded-lg p-2 bg-slate-100 items-center my-1 w-full'>
-                  <Avatar>
-                    <AvatarImage src={notification.userDetails?.profilePicture} />
-                    <AvatarFallback>MP</AvatarFallback>
-                  </Avatar>
-                  <p className='text-sm'>
-                    <span className='font-bold mr-1'>{notification.userDetails?.username}</span>
-                    {
-                      notification?.type === "like" && <span className='font-semibold text-sm'>liked your post</span>
-                    }
-                    {
-                      notification?.type === "dislike" && <span className='font-semibold text-sm'>disliked your post</span>
-                    }
-                    {
-                      notification?.type === "comment" && <>
-                        <span className='font-semibold text-sm' >commented on your post</span>
-                        <br />
-                        <span className='text-gray-500 font-medium'>{notification?.message}</span>
-                      </>
-                    }
-                  </p>
-                </div>
-              )
-            })
-          )
-        }
-      </div>
+    <div className='w-full max-w-[470px] mx-auto px-4 py-6'>
+      <h1 className='text-xl font-bold mb-4'>Notifications</h1>
+      {notifications.length === 0 ? (
+        <p className='text-sm text-gray-500'>No new notification</p>
+      ) : (
+        <div className='flex flex-col divide-y divide-gray-200 rounded-lg border border-gray-200 bg-white'>
+          {notifications.map((notification) => (
+            <div key={notification._id} className='p-3'>
+              <NotificationItem notification={notification} />
+            </div>
+          ))}
+        </div>
+      )}
     </div>
-  )
+  );
 }

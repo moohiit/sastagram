@@ -1,35 +1,46 @@
 import { createSlice } from "@reduxjs/toolkit";
 
+// Real-time + persisted notifications. The list is fetched from
+// GET /api/v1/notification on app load; live socket "notification" events
+// deliver full persisted notification objects that get prepended.
 const rtnSlice = createSlice({
   name: "notification",
   initialState: {
-    liveNotification: [],
+    notifications: [],
+    unreadCount: 0,
   },
   reducers: {
-    setLiveNotification: (state, action) => {
-      if (action.payload === null) {
-        state.liveNotification = [];
-      } else {
-        const newNotification = action.payload;
-
-        // Remove "like" notification if a "dislike" notification for the same post/user exists
-        if (newNotification.type === "dislike") {
-          state.liveNotification = state.liveNotification.filter(
-            (notification) =>
-              !(
-                notification.type === "like" &&
-                notification.userId === newNotification.userId &&
-                notification.postId === newNotification.postId
-              )
-          );
-        }
-
-        // Add the new notification
-        state.liveNotification = [...state.liveNotification, newNotification];
-      }
+    // Replace the whole list (initial fetch)
+    setNotifications: (state, action) => {
+      state.notifications = action.payload?.notifications || [];
+      state.unreadCount = action.payload?.unreadCount || 0;
+    },
+    // Live socket event: prepend and bump unread
+    addNotification: (state, action) => {
+      const notification = action.payload;
+      if (!notification?._id) return;
+      // Guard against duplicates (e.g. reconnects re-emitting)
+      if (state.notifications.some((n) => n._id === notification._id)) return;
+      state.notifications = [notification, ...state.notifications];
+      state.unreadCount += 1;
+    },
+    markAllRead: (state) => {
+      state.unreadCount = 0;
+      state.notifications = state.notifications.map((n) =>
+        n.read ? n : { ...n, read: true }
+      );
+    },
+    clearNotifications: (state) => {
+      state.notifications = [];
+      state.unreadCount = 0;
     },
   },
 });
 
-export const { setLiveNotification } = rtnSlice.actions;
+export const {
+  setNotifications,
+  addNotification,
+  markAllRead,
+  clearNotifications,
+} = rtnSlice.actions;
 export default rtnSlice.reducer;

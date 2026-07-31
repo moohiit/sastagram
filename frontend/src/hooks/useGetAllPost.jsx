@@ -1,27 +1,32 @@
-import { setPosts } from "@/redux/postSlice";
+import { setFeedPage } from "@/redux/postSlice";
 import axios from "axios";
 import { useEffect } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import { useDispatch } from "react-redux";
+
+const PAGE_SIZE = 10;
 
 const useGetAllPost = () => {
   const dispatch = useDispatch();
-  const {posts}=useSelector(store=>store.post)
+  // Fetch the first page once on mount — depending on `posts` here caused an
+  // infinite fetch -> setPosts -> refetch loop that hammered the API.
   useEffect(() => {
-    const fetchAllPost = async () => {
+    const fetchFirstPage = async () => {
       try {
-        const response = await axios.get("/api/v1/post/all", {
-          withCredentials:true
-        })
+        const response = await axios.get(`/api/v1/post/all?limit=${PAGE_SIZE}`, {
+          withCredentials: true,
+        });
         if (response.data.success) {
-          dispatch(setPosts(response.data.posts))
-          // console.log(response.data);
+          dispatch(setFeedPage({
+            posts: response.data.posts,
+            nextCursor: response.data.nextCursor,
+          }));
         }
       } catch (error) {
         console.log(error);
       }
-    }
-    fetchAllPost();
-  }, [posts])
-}
+    };
+    fetchFirstPage();
+  }, [dispatch]);
+};
 
 export default useGetAllPost;

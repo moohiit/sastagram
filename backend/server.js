@@ -1,42 +1,59 @@
-import express, { urlencoded } from 'express';
-import cors from 'cors';
-import cookieParser from 'cookie-parser';
-import { configDotenv } from 'dotenv';
+// Load environment variables before anything else — app.js reads process.env
+// (CORS origin, NODE_ENV) at import time, and ESM imports are hoisted.
+import 'dotenv/config';
+import mongoose from 'mongoose';
 import connectDb from './utils/db.js';
-import userRoutes from "./routes/user.routes.js";
-import postRoutes from './routes/post.routes.js';
-import messageRoutes from './routes/message.routes.js';
-import {server,app} from './socket.io/socket.io.js'
-import path from 'path'
+import { server } from './socket.io/socket.io.js';
+import './app.js'; // wires all middleware/routes onto the shared express app
 
-//Configure environment Variables
-configDotenv({});
-const PORT = process.env.PORT;
-const __dirname = path.resolve();
-//Middlewares
-app.use(express.json());
-app.use(cookieParser());
-app.use(urlencoded({ extended: true }))
-const corsOptions = {
-  origin: process.env.URL,
-  credentials: true,
+// Fail fast on missing critical config instead of crashing on first request
+for (const key of ["MONGO_URI", "JWT_SECRET"]) {
+  if (!process.env[key]) {
+    console.error(`Missing required environment variable: ${key}`);
+    process.exit(1);
+  }
 }
-//Cross-origin Request Handling using cors
-app.use(cors(corsOptions));
 
-// All Api Call here
-app.use('/api/v1/user', userRoutes);
-app.use('/api/v1/post', postRoutes);
-app.use('/api/v1/message', messageRoutes);
+const PORT = process.env.PORT || 8000;
+const isProduction = process.env.NODE_ENV === "production";
 
-
-//Serve the static frontend
-app.use(express.static(path.join(__dirname, "/frontend/dist")))
-app.get('*', (req, res) => {
-  res.sendFile(path.resolve(__dirname, "frontend", "dist", "index.html"));
-})
 //Listen the app on a port
 server.listen(PORT, () => {
   connectDb();
-  console.log(`Server is running at port ${PORT}`);
+  console.log(`Server is running at port ${PORT} (${isProduction ? "production" : "development"})`);
 })
+
+// Graceful shutdown: stop accepting connections, close the DB, then exit.
+// A 10s force-exit fallback guards against hung connections.
+let shuttingDown = false;
+const shutdown = (signal) => {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`${signal} received — shutting down gracefully...`);
+
+  const forceExit = setTimeout(() => {
+    console.error("Forced shutdown after 10s timeout");
+    process.exit(1);
+  }, 10_000);
+  forceExit.unref();
+
+  server.close(async () => {
+    console.log("HTTP server closed");
+    try {
+      // Force-close, bounded: a connection stuck mid-retry (DB unreachable)
+      // would otherwise block close() until the driver's selection timeout.
+      await Promise.race([
+        mongoose.connection.close(true),
+        new Promise((resolve) => setTimeout(resolve, 5_000).unref()),
+      ]);
+      console.log("MongoDB connection closed");
+      process.exit(0);
+    } catch (err) {
+      console.error("Error during shutdown:", err);
+      process.exit(1);
+    }
+  });
+};
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));

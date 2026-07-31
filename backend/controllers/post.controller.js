@@ -3,7 +3,7 @@ import cloudinary from "../utils/cloudinary.js";
 import { Post } from "../models/post.model.js";
 import { User } from "../models/user.model.js";
 import { Comment } from "../models/comment.model.js";
-import { getRecieverSocketId, io } from "../socket.io/socket.io.js";
+import { notify } from "../utils/notify.js";
 
 //Add new Post controller
 export const addNewPost = async (req, res) => {
@@ -75,44 +75,49 @@ export const addNewPost = async (req, res) => {
     console.error(error);
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Internal server error",
     });
   }
 };
 
-// Get all Posts controller
+// Get all Posts controller — cursor-paginated (?cursor=<lastPostId>&limit=10)
 export const getAllPost = async (req, res) => {
   try {
-    const posts = await Post.find()
-      .sort({ createdAt: -1 })
+    const limit = Math.min(parseInt(req.query.limit, 10) || 10, 30);
+    const { cursor } = req.query;
+    const query = cursor ? { _id: { $lt: cursor } } : {};
+
+    // Fetch one extra to know whether another page exists
+    const posts = await Post.find(query)
+      .sort({ _id: -1 })
+      .limit(limit + 1)
       .populate({
         path: "author",
         select: "username profilePicture",
       })
       .populate({
         path: "comments",
-        sort: { createdAt: -1 },
+        options: { sort: { createdAt: -1 } },
         populate: {
           path: "author",
           select: "username profilePicture",
         },
       });
-    if (!posts) {
-      return res.status(500).json({
-        message: "Error fetching posts",
-        success: false,
-      });
-    }
+
+    const hasMore = posts.length > limit;
+    if (hasMore) posts.pop();
+
     return res.status(200).json({
       message: "Posts fetched successfully",
       success: true,
       posts,
+      nextCursor: hasMore ? posts[posts.length - 1]._id : null,
     });
   } catch (error) {
     console.error(error);
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Internal server error",
     });
   }
 };
@@ -129,7 +134,7 @@ export const getUserPost = async (req, res) => {
       })
       .populate({
         path: "comments",
-        sort: { createdAt: -1 },
+        options: { sort: { createdAt: -1 } },
         populate: {
           path: "author",
           select: "username profilePicture",
@@ -150,7 +155,7 @@ export const getUserPost = async (req, res) => {
     console.log(error);
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Internal server error",
     });
   }
 };
@@ -167,24 +172,16 @@ export const likePost = async (req, res) => {
         success: false,
       });
     }
-    //like logic
+    //like logic (atomic — no extra save needed)
     await post.updateOne({ $addToSet: { likes: likerId } });
-    await post.save();
-    //Socket.io logic goes here for realtime effect
-    const user = await User.findById(likerId).select("username profilePicture");
-    const postOwnerId = post.author.toString();
-    if (postOwnerId !== likerId) {
-      //emit a notification
-      const notification = {
-        type: "like",
-        userId: likerId,
-        userDetails: user,
-        postId,
-        message: "Your post was liked",
-      };
-      const postOwnerSocketId = getRecieverSocketId(postOwnerId);
-      io.to(postOwnerSocketId).emit("notification", notification);
-    }
+    // Persisted + realtime notification (offline users see it on next login)
+    await notify({
+      recipient: post.author,
+      sender: likerId,
+      type: "like",
+      post: postId,
+      text: "liked your post",
+    });
 
     //return response
     return res.status(200).json({
@@ -195,7 +192,7 @@ export const likePost = async (req, res) => {
     console.log(error);
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Internal server error",
     });
   }
 };
@@ -212,28 +209,9 @@ export const dislikePost = async (req, res) => {
         success: false,
       });
     }
-    //Dislike logic
+    //Dislike logic (atomic — no extra save needed). Unliking a post is not a
+    //notification-worthy event — no notification is sent.
     await post.updateOne({ $pull: { likes: dislikerId } });
-    await post.save();
-
-    //Socket.io logic goes here for realtime effect
-    const user = await User.findById(dislikerId).select(
-      "username profilePicture"
-    );
-    const postOwnerId = post.author.toString();
-    if (postOwnerId !== dislikerId) {
-      //emit a notification
-      const notification = {
-        type: "dislike",
-        userId: dislikerId,
-        userDetails: user,
-        postId,
-        message: "Your post was disliked",
-      };
-      const postOwnerSocketId = getRecieverSocketId(postOwnerId);
-      io.to(postOwnerSocketId).emit("notification", notification);
-    }
-    //end
 
     return res.status(200).json({
       message: "Post disliked succesfully",
@@ -243,7 +221,7 @@ export const dislikePost = async (req, res) => {
     console.log(error);
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Internal server error",
     });
   }
 };
@@ -285,23 +263,14 @@ export const addComment = async (req, res) => {
     post.comments.push(comment._id);
     await post.save();
 
-    //Socket.io logic goes here for realtime effect
-    const user = await User.findById(commenterId).select(
-      "username profilePicture"
-    );
-    const postOwnerId = post.author.toString();
-    if (postOwnerId !== commenterId) {
-      //emit a notification
-      const notification = {
-        type: "comment",
-        userId: commenterId,
-        userDetails: user,
-        postId,
-        message: text,
-      };
-      const postOwnerSocketId = getRecieverSocketId(postOwnerId);
-      io.to(postOwnerSocketId).emit("notification", notification);
-    }
+    // Persisted + realtime notification
+    await notify({
+      recipient: post.author,
+      sender: commenterId,
+      type: "comment",
+      post: postId,
+      text,
+    });
     return res.status(201).json({
       message: "Comment added successfully",
       success: true,
@@ -311,7 +280,7 @@ export const addComment = async (req, res) => {
     console.log(error);
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Internal server error",
     });
   }
 };
@@ -341,7 +310,7 @@ export const getPostComments = async (req, res) => {
     console.log(error);
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Internal server error",
     });
   }
 };
@@ -368,6 +337,15 @@ export const deletePost = async (req, res) => {
 
     //delete the post
     await Post.findByIdAndDelete(postId);
+
+    // Delete the image from Cloudinary (public_id = last URL segment sans extension)
+    try {
+      const publicId = post.image.split("/").pop().split(".")[0];
+      if (publicId) await cloudinary.uploader.destroy(publicId);
+    } catch (e) {
+      console.error("Cloudinary cleanup failed:", e.message);
+    }
+
     //now also remove post id from user post
     let user = await User.findById(authorId);
     user.posts = user.posts.filter((id) => id.toString() !== postId);
@@ -434,7 +412,54 @@ export const bookmarkPost = async (req, res) => {
     console.log(error);
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: "Internal server error",
     });
+  }
+};
+
+// Edit a post caption controller (author only)
+export const editPostCaption = async (req, res) => {
+  try {
+    const { caption } = req.body;
+    if (typeof caption !== "string") {
+      return res.status(400).json({ message: "Caption must be a string", success: false });
+    }
+    const post = await Post.findById(req.params.id);
+    if (!post) {
+      return res.status(404).json({ message: "Post not found", success: false });
+    }
+    if (post.author.toString() !== req.id) {
+      return res.status(403).json({ message: "You are not authorized to edit this post", success: false });
+    }
+    post.caption = caption.trim();
+    await post.save();
+    return res.status(200).json({ message: "Caption updated", success: true, post });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+// Delete a comment controller (comment author or post owner)
+export const deleteComment = async (req, res) => {
+  try {
+    const comment = await Comment.findById(req.params.commentId);
+    if (!comment) {
+      return res.status(404).json({ message: "Comment not found", success: false });
+    }
+    const post = await Post.findById(comment.post);
+    const isCommentAuthor = comment.author.toString() === req.id;
+    const isPostOwner = post && post.author.toString() === req.id;
+    if (!isCommentAuthor && !isPostOwner) {
+      return res.status(403).json({ message: "You are not authorized to delete this comment", success: false });
+    }
+    await Comment.findByIdAndDelete(comment._id);
+    if (post) {
+      await post.updateOne({ $pull: { comments: comment._id } });
+    }
+    return res.status(200).json({ message: "Comment deleted", success: true, commentId: comment._id });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: "Internal server error" });
   }
 };

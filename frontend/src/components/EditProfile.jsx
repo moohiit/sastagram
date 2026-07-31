@@ -1,127 +1,182 @@
-import React, { useRef, useState } from 'react'
-import { useDispatch, useSelector } from 'react-redux'
+import React, { useEffect, useRef, useState } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import { Link, useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { toast } from 'sonner';
+import { Loader2 } from 'lucide-react';
+import { setAuthUser } from '@/redux/authSlice';
+import { cdn } from '@/lib/cdn';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
-import { Select, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue, SelectContent } from './ui/select';
-import { toast } from 'sonner';
-import axios from 'axios';
-import { setAuthUser } from '@/redux/authSlice';
-import { Loader2 } from 'lucide-react';
+import { Label } from './ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from './ui/select';
 
-function EditProfile() {
+const EditProfile = () => {
   const { user } = useSelector(store => store.auth);
   const fileRef = useRef();
-  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const [loading, setLoading] = useState(false);
+  const [preview, setPreview] = useState(null); // object URL for a newly chosen photo
   const [input, setInput] = useState({
-    profilePicture: user?.profilePicture,
-    bio: user?.bio,
-    gender: user?.gender
+    profilePicture: null, // File — only appended when the user picks a new photo
+    bio: user?.bio || '',
+    gender: user?.gender || '',
   });
-  const fileChangeHandler = (e) => {
+
+  // Revoke the preview object URL when it changes / on unmount
+  useEffect(() => {
+    return () => {
+      if (preview) URL.revokeObjectURL(preview);
+    };
+  }, [preview]);
+
+  const fileChangeHandler = e => {
     const file = e.target.files?.[0];
-    if (file) setInput({ ...input, profilePicture: file });
-  }
-  const selectChangeHandler = (value) => {
-    setInput({...input,gender:value})
-  }
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please choose an image file.');
+      return;
+    }
+    setInput(prev => ({ ...prev, profilePicture: file }));
+    setPreview(URL.createObjectURL(file));
+  };
+
   const editProfileHandler = async () => {
-    // console.log(input);
-    
     try {
       setLoading(true);
       const formData = new FormData();
-      formData.append("bio", input.bio);
-      formData.append("gender", input.gender);
+      formData.append('bio', input.bio);
+      formData.append('gender', input.gender);
       if (input.profilePicture) {
-        formData.append("profilePicture", input.profilePicture);
+        formData.append('profilePicture', input.profilePicture);
       }
-      console.log(formData);
-      const response = await axios.post(`/api/v1/user/profile/edit`, formData, {
-        headers: {
-          "Content-Type":'multipart/form-data'
-        },
-        withCredentials:true
-      })
+      const response = await axios.post('/api/v1/user/profile/edit', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        withCredentials: true,
+      });
       if (response.data.success) {
-        const updatedUserData = {
-          ...user,
-          bio: response.data.user.bio,
-          gender: response.data.user.gender,
-          profilePicture:response.data.user.profilePicture
-        }
-        dispatch(setAuthUser(updatedUserData))
-        navigate(`/profile/${user?._id}`)
+        dispatch(
+          setAuthUser({
+            ...user,
+            bio: response.data.user.bio,
+            gender: response.data.user.gender,
+            profilePicture: response.data.user.profilePicture,
+          })
+        );
         toast.success(response.data.message);
-      }      
-    } catch (error) { 
-      console.log(error);
-      toast.error(error.response.data.message)
+        navigate(`/profile/${user?._id}`);
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error(error.response?.data?.message || 'Could not update profile.');
     } finally {
       setLoading(false);
     }
-  }
+  };
+
   return (
-    <div className='flex flex-col items-center max-w-2xl my-10'>
-      <section className='flex flex-col gap-6 my-8 w-full'>
-        <h1 className='font-bold text-xl'>Edit Profile</h1>
-        <div className='flex items-center justify-between bg-gray-100 rounded-xl p-4'>
-          <div className='flex items-center gap-4'>
+    <div className='mx-auto w-full max-w-[470px] px-4 py-6'>
+      <h1 className='mb-4 text-xl font-bold text-gray-900'>Edit profile</h1>
+      <section className='flex flex-col gap-6 rounded-lg border border-gray-200 bg-white p-4'>
+        {/* Avatar + change photo */}
+        <div className='flex items-center justify-between gap-3 rounded-lg bg-gray-100 p-4'>
+          <div className='flex min-w-0 items-center gap-4'>
             <Link to={`/profile/${user?._id}`}>
-              <Avatar className='w-12 h-12'>
-                <AvatarImage src={user?.profilePicture} />
-                <AvatarFallback>MP</AvatarFallback>
+              <Avatar className='h-11 w-11'>
+                <AvatarImage
+                  src={preview || cdn(user?.profilePicture, 100)}
+                  alt={user?.username}
+                />
+                <AvatarFallback>{user?.username?.[0]?.toUpperCase() || 'U'}</AvatarFallback>
               </Avatar>
             </Link>
-            <div className=''>
-              <h1 className='font-bold text-sm'>
-                <Link to={`/profile/${user?._id}`}>
-                  {user?.username}
-                </Link>
-              </h1>
-              <h3 className='text-gray-600 '>{user?.bio || "Boi Here..."} </h3>
+            <div className='min-w-0'>
+              <p className='truncate text-sm font-semibold text-gray-900'>
+                <Link to={`/profile/${user?._id}`}>{user?.username}</Link>
+              </p>
+              {user?.bio ? (
+                <p className='truncate text-sm text-gray-500'>{user.bio}</p>
+              ) : null}
             </div>
           </div>
-          <input onChange={(e)=>fileChangeHandler(e)} type="file" className='hidden' ref={fileRef} />
-          <Button className='bg-[#0095F6] hover:bg-[#0277c5]' onClick={() => fileRef.current.click()}>Change Photo</Button>
+          <input
+            onChange={fileChangeHandler}
+            type='file'
+            accept='image/*'
+            className='hidden'
+            ref={fileRef}
+          />
+          <Button
+            onClick={() => fileRef.current?.click()}
+            className='h-8 shrink-0 bg-blue-500 font-semibold text-white hover:bg-blue-600'
+          >
+            Change photo
+          </Button>
         </div>
+
+        {/* Bio */}
         <div>
-          <h1 className='font-bold '>Bio</h1>
-          <Textarea value={input.bio} onChange={(e)=>setInput({...input,bio:e.target.value})} className='focus-visible:ring-transparent' name={"Bio"} />
+          <Label htmlFor='edit-bio' className='text-sm font-semibold text-gray-900'>
+            Bio
+          </Label>
+          <Textarea
+            id='edit-bio'
+            value={input.bio}
+            onChange={e => setInput(prev => ({ ...prev, bio: e.target.value }))}
+            placeholder='Tell people about yourself'
+            className='mt-1 focus-visible:ring-transparent'
+          />
         </div>
+
+        {/* Gender */}
         <div>
-          <h1 className='font-bold mb-2'>Gender</h1>
-          <Select defaultValue={input.gender} onValueChange={(value)=>selectChangeHandler(value)}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Select Gender" />
+          <Label className='text-sm font-semibold text-gray-900'>Gender</Label>
+          <Select
+            defaultValue={input.gender || undefined}
+            onValueChange={value => setInput(prev => ({ ...prev, gender: value }))}
+          >
+            <SelectTrigger className='mt-1 w-[180px]'>
+              <SelectValue placeholder='Select gender' />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                <SelectLabel>Genders</SelectLabel>
-                <SelectItem value="male">Male</SelectItem>
-                <SelectItem value="female">Female</SelectItem>
-                <SelectItem value="other">Other</SelectItem>
+                <SelectItem value='male'>Male</SelectItem>
+                <SelectItem value='female'>Female</SelectItem>
+                <SelectItem value='other'>Other</SelectItem>
               </SelectGroup>
             </SelectContent>
           </Select>
         </div>
+
+        {/* Submit */}
         <div className='flex justify-end'>
-          {
-            loading ? (
-              <Button>
-                <Loader2 className='mr-2 h-4 w-4 animate-spin' /> Please wait...
-              </Button>
-            ): (
-              <Button onClick={editProfileHandler} className='bg-[#0095F6] hover:bg-[#0277c5]'>Submit</Button>
-            )
-          }
+          <Button
+            onClick={editProfileHandler}
+            disabled={loading}
+            className='h-8 bg-blue-500 font-semibold text-white hover:bg-blue-600'
+          >
+            {loading ? (
+              <>
+                <Loader2 className='mr-2 h-4 w-4 animate-spin' />
+                Saving...
+              </>
+            ) : (
+              'Submit'
+            )}
+          </Button>
         </div>
       </section>
     </div>
-  )
-}
+  );
+};
 
-export default EditProfile
+export default EditProfile;
