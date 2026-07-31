@@ -9,11 +9,10 @@ import Search from './components/Search';
 import Notifications from './components/Notifications';
 import EditProfile from './components/EditProfile';
 import Chat from './components/Chat';
-import { io } from 'socket.io-client';
 import { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { setSocket } from './redux/socketSlice';
 import { setOnlineUsers } from './redux/chatSlice';
+import { connectSocket, closeSocket } from './lib/socket';
 import { addNotification, setNotifications } from './redux/rtnSlice';
 import axios from 'axios';
 import ProtectedRoutes from './components/ProtectedRoutes';
@@ -82,43 +81,30 @@ const browserRouter = createBrowserRouter([
 
 function App() {
   const { user } = useSelector(store => store.auth);
-  const { socket } = useSelector(store => store.socketio);
   const dispatch = useDispatch();
   useEffect(() => {
     if (user) {
       // Same-origin connection: proxied by Vite in dev, served by the backend
       // itself in production. Identity comes from the httpOnly JWT cookie —
-      // the server no longer trusts a client-supplied userId.
-      const socketio = io("/", {
-        transports: ['websocket'],
-        withCredentials: true,
-      });
-
-      socketio.on('connect', () => {
-        console.log('Connected to socket server');
-      });
-
-      dispatch(setSocket(socketio));
+      // the server no longer trusts a client-supplied userId. The instance
+      // lives in a module singleton (not redux — it isn't serializable).
+      const socketio = connectSocket();
 
       socketio.on('getOnlineUsers', (onlineUsers) => {
-        console.log('Online Users:', onlineUsers);
         dispatch(setOnlineUsers(onlineUsers));
       });
-      // The server now emits the full persisted notification object
+      // The server emits the full persisted notification object
       // ({_id, sender, type, post, text, read, createdAt})
       socketio.on('notification', (notification) => {
         dispatch(addNotification(notification))
       })
       return () => {
-        socketio.close();
+        closeSocket();
         dispatch(setOnlineUsers(null));
-        console.log('Socket closed');
       }
-    } else if (socket) {
-      socket.close();
-      dispatch(setOnlineUsers(null));
-      console.log('Socket closed due to user logout');
     }
+    closeSocket();
+    dispatch(setOnlineUsers(null));
   }, [user, dispatch]);
 
   // Load persisted notifications once the user is logged in

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import useSocket from '@/hooks/useSocket';
 import { useDispatch, useSelector } from 'react-redux';
 import axios from 'axios';
 import { toast } from 'sonner';
@@ -16,7 +17,7 @@ const STOP_TYPING_IDLE_MS = 1500;
 const MessageComposer = ({ selectedUser }) => {
   const dispatch = useDispatch();
   const { user } = useSelector((store) => store.auth);
-  const { socket } = useSelector((store) => store.socketio);
+  const socket = useSocket();
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
   const inputRef = useRef(null);

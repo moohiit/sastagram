@@ -27,7 +27,7 @@ const NewChatDialog = ({ open, onOpenChange, onSelect }) => {
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className='max-w-sm p-0 gap-0'>
+      <DialogContent aria-describedby={undefined} className='max-w-sm p-0 gap-0'>
         <DialogTitle className='text-base font-semibold text-gray-900 text-center py-3 border-b border-gray-200'>
           New message
         </DialogTitle>

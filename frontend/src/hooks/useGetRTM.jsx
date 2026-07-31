@@ -7,7 +7,8 @@ import {
 } from "@/redux/chatSlice";
 import axios from "axios";
 import { useEffect } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import { useDispatch } from "react-redux";
+import useSocket from "./useSocket";
 
 /**
  * Real-time messaging subscriptions. Mount once on the chat page (Chat.jsx).
@@ -22,7 +23,7 @@ import { useDispatch, useSelector } from "react-redux";
  */
 const useGetRTM = () => {
   const dispatch = useDispatch();
-  const { socket } = useSelector((store) => store.socketio);
+  const socket = useSocket();
 
   useEffect(() => {
     if (!socket) return;
