@@ -107,6 +107,44 @@ describe('comments', () => {
   });
 });
 
+describe('GET /api/v1/post/search', () => {
+  // No GEMINI_API_KEY in the test env → isAiEnabled() is false, so the
+  // endpoint must serve the caption-regex fallback with mode "text".
+  it('returns regex-fallback results with mode "text" when AI is disabled', async () => {
+    await Post.deleteMany({});
+    await makePost('sunset at the beach');
+    await makePost('mountain Sunset hike');
+    await makePost('city skyline at night');
+
+    const res = await request(app).get('/api/v1/post/search?q=sunset');
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.mode).toBe('text');
+    expect(res.body.posts).toHaveLength(2);
+    // Newest first
+    expect(res.body.posts[0].caption).toBe('mountain Sunset hike');
+    expect(res.body.posts[1].caption).toBe('sunset at the beach');
+    // Author populated, embedding never exposed
+    expect(res.body.posts[0].author.username).toBe('postauthor');
+    expect(res.body.posts[0].embedding).toBeUndefined();
+  });
+
+  it('escapes regex metacharacters and returns [] for an empty query', async () => {
+    await Post.deleteMany({});
+    await makePost('literal (parens) caption');
+
+    const meta = await request(app).get('/api/v1/post/search').query({ q: '(parens)' });
+    expect(meta.status).toBe(200);
+    expect(meta.body.mode).toBe('text');
+    expect(meta.body.posts).toHaveLength(1);
+
+    const empty = await request(app).get('/api/v1/post/search?q=');
+    expect(empty.status).toBe(200);
+    expect(empty.body.posts).toEqual([]);
+    expect(empty.body.mode).toBe('text');
+  });
+});
+
 describe('PUT /api/v1/post/:id/caption', () => {
   it('forbids a non-author from editing the caption', async () => {
     const post = await makePost('original caption');

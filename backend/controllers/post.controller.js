@@ -473,3 +473,55 @@ export const deleteComment = async (req, res) => {
     return res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
+
+export const searchPosts = async (req, res) => {
+  try {
+    const q = (req.query.q || "").toString().trim();
+    if (!q) {
+      return res.status(200).json({ success: true, posts: [], mode: "text" });
+    }
+
+    if (isAiEnabled()) {
+      try {
+        const queryVector = await embedText(q);
+        const posts = await Post.aggregate([
+          {
+            $vectorSearch: {
+              index: "post_embedding_index",
+              path: "embedding",
+              queryVector,
+              numCandidates: 100,
+              limit: 20,
+            },
+          },
+          { $project: { embedding: 0 } },
+          {
+            $lookup: {
+              from: "users",
+              localField: "author",
+              foreignField: "_id",
+              as: "author",
+              pipeline: [{ $project: { username: 1, profilePicture: 1 } }],
+            },
+          },
+          { $unwind: { path: "$author", preserveNullAndEmptyArrays: true } },
+        ]);
+        return res.status(200).json({ success: true, posts, mode: "semantic" });
+      } catch (error) {
+        // Fall through to text search (e.g. no Atlas vector index, API error)
+        console.error("Semantic search failed, falling back to text:", error.message);
+      }
+    }
+
+    // Fallback: case-insensitive caption substring search, newest first
+    const safe = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const posts = await Post.find({ caption: { $regex: safe, $options: "i" } })
+      .sort({ _id: -1 })
+      .limit(20)
+      .populate({ path: "author", select: "username profilePicture" });
+    return res.status(200).json({ success: true, posts, mode: "text" });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
