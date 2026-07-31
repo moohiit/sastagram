@@ -106,16 +106,23 @@ function Post({ post }) {
   }
 
   // ---- comments ----
-  const addCommentHandler = async () => {
+  const addCommentHandler = async (force = false) => {
     if (!requireLogin()) return
     const text = comment.trim()
     if (!text) return
     try {
       const response = await axios.post(
         `/api/v1/post/${post._id}/comment`,
-        { text },
+        { text, force },
         { withCredentials: true }
       )
+      if (response.data.flagged) {
+        toast.warning('This comment may be hurtful', {
+          description: 'Our AI flagged it. Post it anyway?',
+          action: { label: 'Post anyway', onClick: () => addCommentHandler(true) },
+        })
+        return
+      }
       if (response.data.success) {
         const updatedComments = [...comments, response.data.comment]
         dispatch(
@@ -281,7 +288,7 @@ function Post({ post }) {
         />
         {comment.trim() && (
           <button
-            onClick={addCommentHandler}
+            onClick={() => addCommentHandler()}
             className='text-sm font-semibold text-blue-500 hover:text-blue-700 cursor-pointer'
           >
             Post

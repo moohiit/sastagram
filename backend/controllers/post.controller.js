@@ -4,6 +4,7 @@ import { Post } from "../models/post.model.js";
 import { User } from "../models/user.model.js";
 import { Comment } from "../models/comment.model.js";
 import { notify } from "../utils/notify.js";
+import { isToxicComment } from "../utils/moderation.js";
 import { enrichPostAI } from "../utils/postAI.js";
 import { isAiEnabled, embedText } from "../utils/gemini.js";
 
@@ -241,12 +242,22 @@ export const addComment = async (req, res) => {
   try {
     const commenterId = req.id;
     const postId = req.params.id;
-    const { text } = req.body;
+    const { text, force } = req.body;
 
     if (!text) {
       return res.status(400).json({
         message: "Comment required",
         success: false,
+      });
+    }
+
+    // Soft moderation: flag potentially hurtful comments once; the client may
+    // resend with force=true to post anyway. Fails open on AI errors.
+    if (!force && (await isToxicComment(text))) {
+      return res.status(200).json({
+        success: false,
+        flagged: true,
+        message: "This comment may be hurtful",
       });
     }
 
