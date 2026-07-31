@@ -4,6 +4,8 @@ import { Post } from "../models/post.model.js";
 import { User } from "../models/user.model.js";
 import { Comment } from "../models/comment.model.js";
 import { notify } from "../utils/notify.js";
+import { enrichPostAI } from "../utils/postAI.js";
+import { isAiEnabled, embedText } from "../utils/gemini.js";
 
 //Add new Post controller
 export const addNewPost = async (req, res) => {
@@ -61,6 +63,10 @@ export const addNewPost = async (req, res) => {
     user.posts.push(post._id);
     await user.save();
 
+    // Fire-and-forget AI enrichment (alt-text + embedding) — deliberately not
+    // awaited so upload response time is unchanged; no-op when AI is disabled.
+    enrichPostAI(post._id, optimizedImageBuffer, "image/jpeg", caption);
+
     //populate the post with user data
     await post.populate({
       path: "author",
@@ -79,6 +85,10 @@ export const addNewPost = async (req, res) => {
     });
   }
 };
+
+// GET /api/v1/post/search?q= — semantic search over post embeddings (Atlas
+// $vectorSearch) with a plain caption-regex fallback whenever AI is disabled
+// or anything in the semantic path fails.
 
 // Get all Posts controller — cursor-paginated (?cursor=<lastPostId>&limit=10)
 export const getAllPost = async (req, res) => {

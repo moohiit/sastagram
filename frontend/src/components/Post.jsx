@@ -221,7 +221,7 @@ function Post({ post }) {
         <img
           className='w-full aspect-square object-cover'
           src={cdn(post?.image, 800)}
-          alt={post?.caption ? post.caption.slice(0, 80) : 'Post'}
+          alt={post?.altText || (post?.caption ? post.caption.slice(0, 80) : 'Post')}
           loading='lazy'
           draggable={false}
         />

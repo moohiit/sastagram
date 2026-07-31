@@ -4,6 +4,11 @@ const postSchema = new mongoose.Schema(
   {
     caption: { type: String, default: "" },
     image: { type: String, required: true },
+    // AI-generated accessibility description (empty when AI is disabled)
+    altText: { type: String, default: "" },
+    // 768-dim semantic embedding for vector search — never sent in API
+    // payloads by default (select: false)
+    embedding: { type: [Number], select: false },
     author: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

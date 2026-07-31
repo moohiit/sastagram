@@ -72,7 +72,7 @@ function Explore() {
             >
               <img
                 src={cdn(post.image, 500)}
-                alt={post.caption ? post.caption.slice(0, 60) : 'Post'}
+                alt={post.altText || (post.caption ? post.caption.slice(0, 60) : 'Post')}
                 loading='lazy'
                 className='w-full h-full object-cover'
               />
