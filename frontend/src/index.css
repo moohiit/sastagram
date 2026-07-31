@@ -2,3 +2,8 @@
 @tailwind components;
 @tailwind utilities;
   
+/* Story viewer progress bar fill (paused via animation-play-state) */
+@keyframes story-progress {
+  from { width: 0%; }
+  to { width: 100%; }
+}

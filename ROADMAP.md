@@ -5,7 +5,7 @@ Sequential build order. Status: ✅ done · 🔨 in progress · ⬜ pending
 | # | Feature | Status | Notes |
 |---|---------|--------|-------|
 | 1 | AI caption suggestions (Gemini Vision) | ✅ | ✨ button in CreatePost, 3 styles |
-| 2 | Stories (24h TTL, seen-by ring) | ⬜ | Mongo TTL index |
+| 2 | Stories (24h TTL, seen-by ring) | ✅ | Mongo TTL index |
 | 3 | Semantic photo search | ⬜ | Atlas Vector Search over caption+image description |
 | 4 | Auto alt-text | ⬜ | Background Gemini description on upload |
 | 5 | AI comment moderation | ⬜ | Soft-block toxic comments |
