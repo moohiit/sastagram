@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Compass, Heart, Home, Instagram, LogOut, MessageCircle, PlusSquare, Search } from 'lucide-react';
+import { Compass, Heart, Home, Instagram, LogIn, LogOut, MessageCircle, PlusSquare, Search } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { toast } from 'sonner';
 import axios from 'axios';
@@ -56,12 +56,18 @@ function LeftSidebar({ openCreate }) {
   const isActive = (path) =>
     path === '/' ? location.pathname === '/' : location.pathname.startsWith(path);
 
-  const navItems = [
-    { text: 'Home', path: '/', icon: Home },
-    { text: 'Search', path: '/search', icon: Search },
-    { text: 'Explore', path: '/explore', icon: Compass },
-    { text: 'Messages', path: '/messages', icon: MessageCircle },
-  ];
+  const navItems = user
+    ? [
+        { text: 'Home', path: '/', icon: Home },
+        { text: 'Search', path: '/search', icon: Search },
+        { text: 'Explore', path: '/explore', icon: Compass },
+        { text: 'Messages', path: '/messages', icon: MessageCircle },
+      ]
+    : [
+        { text: 'Home', path: '/', icon: Home },
+        { text: 'Search', path: '/search', icon: Search },
+        { text: 'Explore', path: '/explore', icon: Compass },
+      ];
 
   const label = (text, active) => (
     <span className={`hidden min-[1264px]:inline text-[15px] ${active ? 'font-bold' : ''}`}>
@@ -95,6 +101,8 @@ function LeftSidebar({ openCreate }) {
           );
         })}
 
+        {user && (
+        <>
         <Popover
           open={notifOpen}
           onOpenChange={(isOpen) => {
@@ -148,12 +156,36 @@ function LeftSidebar({ openCreate }) {
           </Avatar>
           {label('Profile', profileActive)}
         </Link>
+        </>
+        )}
+
+        {!user && (
+          <div className='mt-4 flex flex-col items-center min-[1264px]:items-stretch gap-3 px-1'>
+            <Link
+              to='/login'
+              title='Log in'
+              aria-label='Log in'
+              className='flex items-center justify-center gap-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white font-semibold text-sm h-10 w-10 min-[1264px]:w-full transition-colors'
+            >
+              <LogIn size={20} className='shrink-0' />
+              <span className='hidden min-[1264px]:inline'>Log in</span>
+            </Link>
+            <Link
+              to='/signup'
+              className='hidden min-[1264px]:block text-center text-sm font-semibold text-blue-500 hover:text-blue-700'
+            >
+              Sign up
+            </Link>
+          </div>
+        )}
       </nav>
 
-      <button type='button' onClick={logoutHandler} title='Logout' aria-label='Logout' className={itemClass}>
-        <LogOut size={26} className='shrink-0' />
-        {label('Logout', false)}
-      </button>
+      {user && (
+        <button type='button' onClick={logoutHandler} title='Logout' aria-label='Logout' className={itemClass}>
+          <LogOut size={26} className='shrink-0' />
+          {label('Logout', false)}
+        </button>
+      )}
     </aside>
   );
 }

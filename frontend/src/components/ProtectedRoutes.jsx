@@ -1,22 +1,15 @@
-import React, { useEffect } from 'react'
+import { useEffect } from 'react'
 import axios from 'axios';
 import { useDispatch, useSelector } from 'react-redux'
-import { useNavigate } from 'react-router-dom';
 import { setAuthUser } from '@/redux/authSlice';
 
+// Session gate for the whole app shell. Guests are allowed to browse —
+// this only verifies a PERSISTED session against the server and clears it
+// if the cookie has expired (RequireAuth handles pages that need a user).
 const ProtectedRoutes = ({ children }) => {
   const { user } = useSelector(store => store.auth);
   const dispatch = useDispatch();
-  const navigate = useNavigate();
 
-  useEffect(() => {
-    if (!user) {
-      navigate('/login');
-    }
-  }, [user])
-
-  // Verify the persisted session against the server in the background.
-  // Render immediately for good UX; only kick to /login on a real 401.
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
@@ -26,7 +19,6 @@ const ProtectedRoutes = ({ children }) => {
       } catch (error) {
         if (!cancelled && error.response?.status === 401) {
           dispatch(setAuthUser(null));
-          navigate('/login');
         }
       }
     };
@@ -34,11 +26,7 @@ const ProtectedRoutes = ({ children }) => {
     return () => { cancelled = true; };
   }, []);
 
-  return (
-    <>
-      {children}
-    </>
-  )
+  return <>{children}</>;
 }
 
 export default ProtectedRoutes

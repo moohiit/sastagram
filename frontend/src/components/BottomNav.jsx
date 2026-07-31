@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-import { Compass, Heart, Home, PlusSquare } from 'lucide-react';
+import { Compass, Heart, Home, PlusSquare, Search } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 
 // Mobile-only (< 768px) fixed bottom navigation.
@@ -20,6 +20,30 @@ function BottomNav({ openCreate }) {
   });
 
   const itemClass = 'flex flex-1 items-center justify-center py-2.5 text-gray-900';
+
+  if (!user) {
+    return (
+      <nav className='md:hidden fixed bottom-0 inset-x-0 z-30 flex items-center border-t border-gray-200 bg-white'>
+        <Link to='/' aria-label='Home' className={itemClass}>
+          <Home {...iconProps('/')} />
+        </Link>
+        <Link to='/search' aria-label='Search' className={itemClass}>
+          <Search {...iconProps('/search')} />
+        </Link>
+        <Link to='/explore' aria-label='Explore' className={itemClass}>
+          <Compass {...iconProps('/explore')} />
+        </Link>
+        <div className='flex flex-1 items-center justify-center py-1.5'>
+          <Link
+            to='/login'
+            className='rounded-lg bg-blue-500 hover:bg-blue-600 px-4 py-1.5 text-sm font-semibold text-white transition-colors'
+          >
+            Log in
+          </Link>
+        </div>
+      </nav>
+    );
+  }
 
   return (
     <nav className='md:hidden fixed bottom-0 inset-x-0 z-30 flex border-t border-gray-200 bg-white'>

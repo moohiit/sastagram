@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import { setAuthUser } from '@/redux/authSlice';
@@ -14,10 +14,12 @@ const EMAIL_REGEX = /^\S+@\S+\.\S+$/;
 const Login = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = location.state?.from || '/';
   const { user } = useSelector(store => store.auth);
 
   useEffect(() => {
-    if (user) navigate('/');
+    if (user) navigate(from);
   }, [user, navigate]);
 
   const [input, setInput] = useState({ email: '', password: '' });
@@ -50,7 +52,7 @@ const Login = () => {
       });
       if (response.data.success) {
         dispatch(setAuthUser(response.data.user));
-        navigate('/');
+        navigate(from);
         toast.success(response.data.message);
         setInput({ email: '', password: '' });
       }

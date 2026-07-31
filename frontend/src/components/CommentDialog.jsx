@@ -9,6 +9,7 @@ import { Trash2 } from 'lucide-react'
 import { cdn } from '@/lib/cdn'
 import { timeAgo } from '@/lib/utils'
 import { setPosts } from '@/redux/postSlice'
+import useRequireLogin from '@/hooks/useRequireLogin'
 
 // Instagram-style comments dialog: image left / thread right on desktop,
 // stacked on mobile. Keeps redux feed state in sync; also works for posts
@@ -17,6 +18,7 @@ function CommentDialog({ open, setOpen, post }) {
   const { posts } = useSelector((store) => store.post)
   const { user } = useSelector((store) => store.auth)
   const dispatch = useDispatch()
+  const requireLogin = useRequireLogin()
 
   const feedPost = posts.find((p) => p._id === post._id)
   const [localComments, setLocalComments] = useState(post.comments || [])
@@ -38,6 +40,7 @@ function CommentDialog({ open, setOpen, post }) {
   }
 
   const sendComment = async () => {
+    if (!requireLogin()) return
     const text = comment.trim()
     if (!text) return
     try {
@@ -57,6 +60,7 @@ function CommentDialog({ open, setOpen, post }) {
   }
 
   const deleteCommentHandler = async (commentId) => {
+    if (!requireLogin()) return
     try {
       const response = await axios.delete(`/api/v1/post/comment/${commentId}`, {
         withCredentials: true,
@@ -167,11 +171,18 @@ function CommentDialog({ open, setOpen, post }) {
               <input
                 type='text'
                 value={comment}
+                readOnly={!user}
+                onFocus={(e) => {
+                  if (!user) {
+                    e.target.blur()
+                    requireLogin()
+                  }
+                }}
                 onChange={(e) => setComment(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') sendComment()
                 }}
-                placeholder='Add a comment...'
+                placeholder={user ? 'Add a comment...' : 'Log in to comment'}
                 className='flex-1 outline-none text-sm text-gray-900 placeholder:text-gray-400 bg-transparent'
               />
               <button

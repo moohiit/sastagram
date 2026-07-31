@@ -3,6 +3,7 @@ import { useSelector } from 'react-redux';
 import { Link, useParams } from 'react-router-dom';
 import { Bookmark, Grid3x3 } from 'lucide-react';
 import useGetUserProfile from '@/hooks/useGetUserProfile';
+import useRequireLogin from '@/hooks/useRequireLogin';
 import { cdn } from '@/lib/cdn';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Button } from './ui/button';
@@ -14,6 +15,7 @@ const Profile = () => {
   const { id: userId } = useParams();
   useGetUserProfile(userId);
   const { userProfile, user } = useSelector(store => store.auth);
+  const requireLogin = useRequireLogin();
   const [activeTab, setActiveTab] = useState('posts');
 
   const isOwnProfile = user?._id === userId;
@@ -64,7 +66,12 @@ const Profile = () => {
             ) : (
               <div className='flex items-center gap-2'>
                 <FollowButton userId={userProfile._id} />
-                <Link to={`/chat/${userProfile._id}`}>
+                <Link
+                  to={`/chat/${userProfile._id}`}
+                  onClick={(e) => {
+                    if (!requireLogin()) e.preventDefault();
+                  }}
+                >
                   <Button variant='secondary' className='h-8 font-semibold'>
                     Message
                   </Button>

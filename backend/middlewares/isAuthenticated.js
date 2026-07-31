@@ -27,3 +27,18 @@ export const isAuthenticated = async (req, res, next) => {
     });
   }
 }
+// Optional auth: attaches req.id when a valid token cookie is present but
+// never rejects — used by public read endpoints so guests can browse while
+// logged-in users still get personalized responses (e.g. own bookmarks).
+export const optionalAuth = (req, res, next) => {
+  try {
+    const token = req.cookies.token;
+    if (token) {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      req.id = decoded.userId;
+    }
+  } catch {
+    // invalid/expired token — treat as guest
+  }
+  next();
+};

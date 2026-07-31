@@ -16,6 +16,7 @@ import { connectSocket, closeSocket } from './lib/socket';
 import { addNotification, setNotifications } from './redux/rtnSlice';
 import axios from 'axios';
 import ProtectedRoutes from './components/ProtectedRoutes';
+import RequireAuth from './components/RequireAuth';
 import Followers from './components/Followers';
 import Following from './components/Following';
 const browserRouter = createBrowserRouter([
@@ -41,23 +42,23 @@ const browserRouter = createBrowserRouter([
       },
       {
         path: "/messages",
-        element: <Chat />
+        element: <RequireAuth><Chat /></RequireAuth>
       },
       {
         path: "/notifications",
-        element: <Notifications />
+        element: <RequireAuth><Notifications /></RequireAuth>
       },
       {
         path: "/profile/edit",
-        element: <EditProfile />
+        element: <RequireAuth><EditProfile /></RequireAuth>
       },
       {
         path: "/chat",
-        element: <Chat />
+        element: <RequireAuth><Chat /></RequireAuth>
       },
       {
         path: "/chat/:id",
-        element: <Chat />
+        element: <RequireAuth><Chat /></RequireAuth>
       },
       {
         path: "/:id/followers",

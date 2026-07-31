@@ -6,6 +6,7 @@ import { Heart } from 'lucide-react'
 import { cdn } from '@/lib/cdn'
 import { setPosts } from '@/redux/postSlice'
 import { setAuthUser } from '@/redux/authSlice'
+import useRequireLogin from '@/hooks/useRequireLogin'
 import CommentDialog from './CommentDialog'
 import PostHeader from './feed/PostHeader'
 import PostActions from './feed/PostActions'
@@ -19,6 +20,7 @@ function Post({ post }) {
   const { user } = useSelector((store) => store.auth)
   const { posts } = useSelector((store) => store.post)
   const dispatch = useDispatch()
+  const requireLogin = useRequireLogin()
 
   const [comment, setComment] = useState('')
   const [commentsOpen, setCommentsOpen] = useState(false)
@@ -62,7 +64,8 @@ function Post({ post }) {
   }
 
   const toggleLike = async (forceLike = false) => {
-    if (!user || likeBusyRef.current) return
+    if (!requireLogin()) return
+    if (likeBusyRef.current) return
     const nextLiked = forceLike ? true : !liked
     if (forceLike && liked) return
     likeBusyRef.current = true
@@ -91,6 +94,7 @@ function Post({ post }) {
     const now = Date.now()
     if (now - lastTapRef.current < DOUBLE_TAP_MS) {
       lastTapRef.current = 0
+      if (!requireLogin()) return
       setBurstKey((k) => k + 1)
       setShowBurst(true)
       clearTimeout(burstTimerRef.current)
@@ -103,6 +107,7 @@ function Post({ post }) {
 
   // ---- comments ----
   const addCommentHandler = async () => {
+    if (!requireLogin()) return
     const text = comment.trim()
     if (!text) return
     try {
@@ -126,6 +131,7 @@ function Post({ post }) {
 
   // ---- bookmark ----
   const bookmarkHandler = async () => {
+    if (!requireLogin()) return
     try {
       const response = await axios.get(`/api/v1/post/${post._id}/bookmark`, {
         withCredentials: true,
@@ -165,6 +171,7 @@ function Post({ post }) {
 
   // ---- follow / unfollow ----
   const toggleFollowHandler = async () => {
+    if (!requireLogin()) return
     try {
       const response = await axios.get(`/api/v1/user/followorunfollow/${post.author._id}`, {
         withCredentials: true,
@@ -258,11 +265,18 @@ function Post({ post }) {
         <input
           type='text'
           value={comment}
+          readOnly={!user}
+          onFocus={(e) => {
+            if (!user) {
+              e.target.blur()
+              requireLogin()
+            }
+          }}
           onChange={(e) => setComment(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') addCommentHandler()
           }}
-          placeholder='Add a comment...'
+          placeholder={user ? 'Add a comment...' : 'Log in to comment'}
           className='flex-1 outline-none text-sm text-gray-900 placeholder:text-gray-400 bg-transparent'
         />
         {comment.trim() && (

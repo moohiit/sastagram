@@ -5,18 +5,22 @@ import { toast } from 'sonner';
 import { Loader2 } from 'lucide-react';
 import { setAuthUser } from '@/redux/authSlice';
 import { Button } from '../ui/button';
+import useRequireLogin from '@/hooks/useRequireLogin';
 
 // Reusable follow/unfollow toggle. Keeps the existing
 // GET /api/v1/user/followorunfollow/:id contract and authSlice update.
+// Guests see the Follow button too — clicking it routes them to /login.
 const FollowButton = ({ userId, className = '' }) => {
   const { user } = useSelector(store => store.auth);
   const dispatch = useDispatch();
+  const requireLogin = useRequireLogin();
   const [loading, setLoading] = useState(false);
 
-  if (!user || !userId || user._id === userId) return null;
-  const isFollowing = user.following?.includes(userId);
+  if (!userId || (user && user._id === userId)) return null;
+  const isFollowing = user?.following?.includes(userId);
 
   const followUnfollowHandler = async () => {
+    if (!requireLogin()) return;
     if (loading) return;
     try {
       setLoading(true);
