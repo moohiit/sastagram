@@ -8,6 +8,18 @@ import MessageComposer from './MessageComposer';
 /**
  * Right pane: thread header (live status), message history, composer.
  */
+
+// "Active 5m ago" when we know a recent last-active time; plain Offline otherwise
+const lastActiveLabel = (lastActiveAt) => {
+  if (!lastActiveAt) return 'Offline';
+  const mins = Math.floor((Date.now() - new Date(lastActiveAt).getTime()) / 60000);
+  if (mins < 1) return 'Active just now';
+  if (mins < 60) return `Active ${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `Active ${hours}h ago`;
+  return 'Offline';
+};
+
 const ChatThread = ({ selectedUser, onBack }) => {
   const { onlineUsers, typing } = useSelector((store) => store.chat);
   const isOnline = onlineUsers?.includes(selectedUser?._id);
@@ -43,7 +55,7 @@ const ChatThread = ({ selectedUser, onBack }) => {
             {selectedUser?.username}
           </Link>
           <span className='text-xs text-gray-500'>
-            {isTyping ? 'typing…' : isOnline ? 'Active now' : 'Offline'}
+            {isTyping ? 'typing…' : isOnline ? 'Active now' : lastActiveLabel(selectedUser?.lastActiveAt)}
           </span>
         </div>
       </header>

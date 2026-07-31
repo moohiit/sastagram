@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import getDataUri from "../utils/datauri.js";
 import cloudinary from "../utils/cloudinary.js";
 import { Post } from "../models/post.model.js";
+import { Follow } from "../models/follow.model.js";
 import { notify } from "../utils/notify.js";
 
 //register Controller
@@ -331,6 +332,16 @@ export const followOrUnfollow = async (req, res) => {
       await User.findByIdAndUpdate(userToFollowOrUnfollowId, {
         $pull: { followers: userId },
       });
+      // Stage-1 dual-write to the Follow collection (see MIGRATION.md). The
+      // arrays stay authoritative — never fail the request on this delete.
+      try {
+        await Follow.deleteOne({
+          follower: userId,
+          following: userToFollowOrUnfollowId,
+        });
+      } catch (error) {
+        console.error("Follow dual-delete failed:", error);
+      }
       // console.log("User unfollowed successfully");
       return res.status(200).json({
         message: "User unfollowed successfully",
@@ -352,6 +363,22 @@ export const followOrUnfollow = async (req, res) => {
       await User.findByIdAndUpdate(userToFollowOrUnfollowId, {
         $push: { followers: userId },
       });
+      // Stage-1 dual-write to the Follow collection (see MIGRATION.md). The
+      // arrays stay authoritative — never fail the request on this upsert.
+      try {
+        await Follow.updateOne(
+          { follower: userId, following: userToFollowOrUnfollowId },
+          {
+            $setOnInsert: {
+              follower: userId,
+              following: userToFollowOrUnfollowId,
+            },
+          },
+          { upsert: true }
+        );
+      } catch (error) {
+        console.error("Follow dual-write failed:", error);
+      }
       // console.log("User followed successfully");
       return res.status(200).json({
         message: "User followed successfully",

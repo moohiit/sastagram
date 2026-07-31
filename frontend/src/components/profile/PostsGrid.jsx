@@ -22,7 +22,7 @@ const PostsGrid = ({ posts, emptyText = 'No posts yet' }) => {
         <div key={post?._id} className='group relative cursor-pointer'>
           <img
             src={cdn(post?.image, 500)}
-            alt='Post'
+            alt={post?.altText || 'Post'}
             loading='lazy'
             className='aspect-square w-full object-cover'
           />

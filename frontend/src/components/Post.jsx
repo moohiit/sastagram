@@ -11,7 +11,9 @@ import CommentDialog from './CommentDialog'
 import PostHeader from './feed/PostHeader'
 import PostActions from './feed/PostActions'
 import PostCaption from './feed/PostCaption'
+import PostPoll from './feed/PostPoll'
 import EditCaptionDialog from './feed/EditCaptionDialog'
+import SharePostDialog from './feed/SharePostDialog'
 import './feed/feed.css'
 
 const DOUBLE_TAP_MS = 300
@@ -25,6 +27,7 @@ function Post({ post }) {
   const [comment, setComment] = useState('')
   const [commentsOpen, setCommentsOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [liked, setLiked] = useState(post.likes.includes(user?._id))
   const [likeCount, setLikeCount] = useState(post.likes.length)
@@ -106,16 +109,23 @@ function Post({ post }) {
   }
 
   // ---- comments ----
-  const addCommentHandler = async () => {
+  const addCommentHandler = async (force = false) => {
     if (!requireLogin()) return
     const text = comment.trim()
     if (!text) return
     try {
       const response = await axios.post(
         `/api/v1/post/${post._id}/comment`,
-        { text },
+        { text, force },
         { withCredentials: true }
       )
+      if (response.data.flagged) {
+        toast.warning('This comment may be hurtful', {
+          description: 'Our AI flagged it. Post it anyway?',
+          action: { label: 'Post anyway', onClick: () => addCommentHandler(true) },
+        })
+        return
+      }
       if (response.data.success) {
         const updatedComments = [...comments, response.data.comment]
         dispatch(
@@ -221,7 +231,7 @@ function Post({ post }) {
         <img
           className='w-full aspect-square object-cover'
           src={cdn(post?.image, 800)}
-          alt={post?.caption ? post.caption.slice(0, 80) : 'Post'}
+          alt={post?.altText || (post?.caption ? post.caption.slice(0, 80) : 'Post')}
           loading='lazy'
           draggable={false}
         />
@@ -238,7 +248,7 @@ function Post({ post }) {
         bookmarked={bookmarked}
         onLike={() => toggleLike()}
         onComment={() => setCommentsOpen(true)}
-        onShare={copyLinkHandler}
+        onShare={() => setShareOpen(true)}
         onBookmark={bookmarkHandler}
       />
 
@@ -251,6 +261,8 @@ function Post({ post }) {
       )}
 
       <PostCaption post={post} />
+
+      {post.poll && <PostPoll post={post} />}
 
       {comments.length > 0 && (
         <button
@@ -281,7 +293,7 @@ function Post({ post }) {
         />
         {comment.trim() && (
           <button
-            onClick={addCommentHandler}
+            onClick={() => addCommentHandler()}
             className='text-sm font-semibold text-blue-500 hover:text-blue-700 cursor-pointer'
           >
             Post
@@ -291,6 +303,12 @@ function Post({ post }) {
 
       <CommentDialog open={commentsOpen} setOpen={setCommentsOpen} post={post} />
       <EditCaptionDialog open={editOpen} setOpen={setEditOpen} post={post} />
+      <SharePostDialog
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        post={post}
+        onCopyLink={copyLinkHandler}
+      />
     </article>
   )
 }

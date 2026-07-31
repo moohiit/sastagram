@@ -3,12 +3,44 @@ import cloudinary from "../utils/cloudinary.js";
 import { Post } from "../models/post.model.js";
 import { User } from "../models/user.model.js";
 import { Comment } from "../models/comment.model.js";
+import { Like } from "../models/like.model.js";
 import { notify } from "../utils/notify.js";
+import { isToxicComment } from "../utils/moderation.js";
+import { enrichPostAI } from "../utils/postAI.js";
+import { isAiEnabled, embedText } from "../utils/gemini.js";
+import { io } from "../socket.io/socket.io.js";
+
+const POLL_QUESTION_MAX = 150;
+const POLL_OPTION_MAX = 80;
+
+// Parse + validate the optional poll fields from a multipart body.
+// Returns { poll } (undefined when no poll was sent) or { error } for a 400.
+const parsePollInput = (pollQuestion, pollOptions) => {
+  if (pollQuestion === undefined && pollOptions === undefined) return {};
+  const question = (pollQuestion || "").toString().trim();
+  if (!question || question.length > POLL_QUESTION_MAX) {
+    return { error: `Poll question is required (max ${POLL_QUESTION_MAX} characters)` };
+  }
+  let options;
+  try {
+    options = JSON.parse(pollOptions);
+  } catch {
+    return { error: "Poll options must be a JSON array" };
+  }
+  if (!Array.isArray(options) || options.length < 2 || options.length > 4) {
+    return { error: "Poll needs 2 to 4 options" };
+  }
+  const texts = options.map((o) => (typeof o === "string" ? o.trim() : ""));
+  if (texts.some((t) => !t || t.length > POLL_OPTION_MAX)) {
+    return { error: `Each poll option must be non-empty (max ${POLL_OPTION_MAX} characters)` };
+  }
+  return { poll: { question, options: texts.map((text) => ({ text, votes: [] })) } };
+};
 
 //Add new Post controller
 export const addNewPost = async (req, res) => {
   try {
-    const { caption } = req.body;
+    const { caption, pollQuestion, pollOptions } = req.body;
     const image = req.file;
     const authorId = req.id;
     if (!image) {
@@ -16,6 +48,11 @@ export const addNewPost = async (req, res) => {
         message: "Image required",
         success: true,
       });
+    }
+    // Validate the optional poll before any upload work
+    const { poll, error: pollError } = parsePollInput(pollQuestion, pollOptions);
+    if (pollError) {
+      return res.status(400).json({ message: pollError, success: false });
     }
     const optimizedImageBuffer = await sharp(image.buffer)
       .resize({
@@ -43,6 +80,7 @@ export const addNewPost = async (req, res) => {
       caption,
       image: imageUrl,
       author: authorId,
+      poll,
     });
     if (!post) {
       return res.status(500).json({
@@ -60,6 +98,10 @@ export const addNewPost = async (req, res) => {
     }
     user.posts.push(post._id);
     await user.save();
+
+    // Fire-and-forget AI enrichment (alt-text + embedding) — deliberately not
+    // awaited so upload response time is unchanged; no-op when AI is disabled.
+    enrichPostAI(post._id, optimizedImageBuffer, "image/jpeg", caption);
 
     //populate the post with user data
     await post.populate({
@@ -79,6 +121,10 @@ export const addNewPost = async (req, res) => {
     });
   }
 };
+
+// GET /api/v1/post/search?q= — semantic search over post embeddings (Atlas
+// $vectorSearch) with a plain caption-regex fallback whenever AI is disabled
+// or anything in the semantic path fails.
 
 // Get all Posts controller — cursor-paginated (?cursor=<lastPostId>&limit=10)
 export const getAllPost = async (req, res) => {
@@ -174,6 +220,17 @@ export const likePost = async (req, res) => {
     }
     //like logic (atomic — no extra save needed)
     await post.updateOne({ $addToSet: { likes: likerId } });
+    // Stage-1 dual-write to the Like collection (see MIGRATION.md). The array
+    // stays authoritative — never fail the request if this write fails.
+    try {
+      await Like.updateOne(
+        { user: likerId, post: postId },
+        { $setOnInsert: { user: likerId, post: postId } },
+        { upsert: true }
+      );
+    } catch (error) {
+      console.error("Like dual-write failed:", error);
+    }
     // Persisted + realtime notification (offline users see it on next login)
     await notify({
       recipient: post.author,
@@ -212,6 +269,13 @@ export const dislikePost = async (req, res) => {
     //Dislike logic (atomic — no extra save needed). Unliking a post is not a
     //notification-worthy event — no notification is sent.
     await post.updateOne({ $pull: { likes: dislikerId } });
+    // Stage-1 dual-write to the Like collection (see MIGRATION.md). The array
+    // stays authoritative — never fail the request if this write fails.
+    try {
+      await Like.deleteOne({ user: dislikerId, post: postId });
+    } catch (error) {
+      console.error("Like dual-delete failed:", error);
+    }
 
     return res.status(200).json({
       message: "Post disliked succesfully",
@@ -231,12 +295,22 @@ export const addComment = async (req, res) => {
   try {
     const commenterId = req.id;
     const postId = req.params.id;
-    const { text } = req.body;
+    const { text, force } = req.body;
 
     if (!text) {
       return res.status(400).json({
         message: "Comment required",
         success: false,
+      });
+    }
+
+    // Soft moderation: flag potentially hurtful comments once; the client may
+    // resend with force=true to post anyway. Fails open on AI errors.
+    if (!force && (await isToxicComment(text))) {
+      return res.status(200).json({
+        success: false,
+        flagged: true,
+        message: "This comment may be hurtful",
       });
     }
 
@@ -458,6 +532,108 @@ export const deleteComment = async (req, res) => {
       await post.updateOne({ $pull: { comments: comment._id } });
     }
     return res.status(200).json({ message: "Comment deleted", success: true, commentId: comment._id });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+// Vote on a post's poll (single-choice, changeable). Removes the voter from
+// every option, then adds them to the chosen one — two atomic updateOne ops.
+// Broadcasts "pollUpdate" to everyone (counts are public data).
+export const votePoll = async (req, res) => {
+  try {
+    const postId = req.params.id;
+    const voterId = req.id;
+    const { optionIndex } = req.body;
+
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ message: "Post not found", success: false });
+    }
+    if (!post.poll) {
+      return res.status(400).json({ message: "This post has no poll", success: false });
+    }
+    const index = Number(optionIndex);
+    if (!Number.isInteger(index) || index < 0 || index >= post.poll.options.length) {
+      return res.status(400).json({ message: "Invalid poll option", success: false });
+    }
+
+    // Remove any previous vote across all options, then add the new one
+    await Post.updateOne(
+      { _id: postId },
+      { $pull: { "poll.options.$[].votes": voterId } }
+    );
+    await Post.updateOne(
+      { _id: postId },
+      { $addToSet: { [`poll.options.${index}.votes`]: voterId } }
+    );
+
+    const updated = await Post.findById(postId).select("poll");
+    const counts = updated.poll.options.map((o) => o.votes.length);
+    const totalVotes = counts.reduce((sum, n) => sum + n, 0);
+
+    io.emit("pollUpdate", { postId, counts, totalVotes });
+
+    return res.status(200).json({
+      message: "Vote recorded",
+      success: true,
+      counts,
+      totalVotes,
+      userOption: index,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+export const searchPosts = async (req, res) => {
+  try {
+    const q = (req.query.q || "").toString().trim();
+    if (!q) {
+      return res.status(200).json({ success: true, posts: [], mode: "text" });
+    }
+
+    if (isAiEnabled()) {
+      try {
+        const queryVector = await embedText(q);
+        const posts = await Post.aggregate([
+          {
+            $vectorSearch: {
+              index: "post_embedding_index",
+              path: "embedding",
+              queryVector,
+              numCandidates: 100,
+              limit: 20,
+            },
+          },
+          { $project: { embedding: 0 } },
+          {
+            $lookup: {
+              from: "users",
+              localField: "author",
+              foreignField: "_id",
+              as: "author",
+              pipeline: [{ $project: { username: 1, profilePicture: 1 } }],
+            },
+          },
+          { $unwind: { path: "$author", preserveNullAndEmptyArrays: true } },
+        ]);
+        return res.status(200).json({ success: true, posts, mode: "semantic" });
+      } catch (error) {
+        // Fall through to text search (e.g. no Atlas vector index, API error)
+        console.error("Semantic search failed, falling back to text:", error.message);
+      }
+    }
+
+    // Fallback: case-insensitive caption substring search, newest first
+    const safe = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const posts = await Post.find({ caption: { $regex: safe, $options: "i" } })
+      .sort({ _id: -1 })
+      .limit(20)
+      .populate({ path: "author", select: "username profilePicture" });
+    return res.status(200).json({ success: true, posts, mode: "text" });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ success: false, message: "Internal server error" });

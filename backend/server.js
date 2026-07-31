@@ -3,7 +3,7 @@
 import 'dotenv/config';
 import mongoose from 'mongoose';
 import connectDb from './utils/db.js';
-import { server } from './socket.io/socket.io.js';
+import { server, initRedisAdapter } from './socket.io/socket.io.js';
 import './app.js'; // wires all middleware/routes onto the shared express app
 
 // Fail fast on missing critical config instead of crashing on first request
@@ -20,6 +20,7 @@ const isProduction = process.env.NODE_ENV === "production";
 //Listen the app on a port
 server.listen(PORT, () => {
   connectDb();
+  initRedisAdapter();
   console.log(`Server is running at port ${PORT} (${isProduction ? "production" : "development"})`);
 })
 

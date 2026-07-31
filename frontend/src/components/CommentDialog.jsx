@@ -39,16 +39,23 @@ function CommentDialog({ open, setOpen, post }) {
     }
   }
 
-  const sendComment = async () => {
+  const sendComment = async (force = false) => {
     if (!requireLogin()) return
     const text = comment.trim()
     if (!text) return
     try {
       const response = await axios.post(
         `/api/v1/post/${post._id}/comment`,
-        { text },
+        { text, force },
         { withCredentials: true }
       )
+      if (response.data.flagged) {
+        toast.warning('This comment may be hurtful', {
+          description: 'Our AI flagged it. Post it anyway?',
+          action: { label: 'Post anyway', onClick: () => sendComment(true) },
+        })
+        return
+      }
       if (response.data.success) {
         syncComments([...comments, response.data.comment])
         setComment('')
@@ -186,7 +193,7 @@ function CommentDialog({ open, setOpen, post }) {
                 className='flex-1 outline-none text-sm text-gray-900 placeholder:text-gray-400 bg-transparent'
               />
               <button
-                onClick={sendComment}
+                onClick={() => sendComment()}
                 disabled={!comment.trim()}
                 className='text-sm font-semibold text-blue-500 hover:text-blue-700 disabled:opacity-40 disabled:cursor-default cursor-pointer'
               >
