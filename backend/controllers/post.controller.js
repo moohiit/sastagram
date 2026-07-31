@@ -3,6 +3,7 @@ import cloudinary from "../utils/cloudinary.js";
 import { Post } from "../models/post.model.js";
 import { User } from "../models/user.model.js";
 import { Comment } from "../models/comment.model.js";
+import { Like } from "../models/like.model.js";
 import { notify } from "../utils/notify.js";
 import { isToxicComment } from "../utils/moderation.js";
 import { enrichPostAI } from "../utils/postAI.js";
@@ -219,6 +220,17 @@ export const likePost = async (req, res) => {
     }
     //like logic (atomic — no extra save needed)
     await post.updateOne({ $addToSet: { likes: likerId } });
+    // Stage-1 dual-write to the Like collection (see MIGRATION.md). The array
+    // stays authoritative — never fail the request if this write fails.
+    try {
+      await Like.updateOne(
+        { user: likerId, post: postId },
+        { $setOnInsert: { user: likerId, post: postId } },
+        { upsert: true }
+      );
+    } catch (error) {
+      console.error("Like dual-write failed:", error);
+    }
     // Persisted + realtime notification (offline users see it on next login)
     await notify({
       recipient: post.author,
@@ -257,6 +269,13 @@ export const dislikePost = async (req, res) => {
     //Dislike logic (atomic — no extra save needed). Unliking a post is not a
     //notification-worthy event — no notification is sent.
     await post.updateOne({ $pull: { likes: dislikerId } });
+    // Stage-1 dual-write to the Like collection (see MIGRATION.md). The array
+    // stays authoritative — never fail the request if this write fails.
+    try {
+      await Like.deleteOne({ user: dislikerId, post: postId });
+    } catch (error) {
+      console.error("Like dual-delete failed:", error);
+    }
 
     return res.status(200).json({
       message: "Post disliked succesfully",
