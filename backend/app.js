@@ -10,6 +10,7 @@ import messageRoutes from './routes/message.routes.js';
 import notificationRoutes from './routes/notification.routes.js';
 import storyRoutes from './routes/story.routes.js';
 import aiRoutes from './routes/ai.routes.js';
+import pushRoutes from './routes/push.routes.js';
 import errorHandler from './middlewares/errorHandler.js';
 import { app } from './socket.io/socket.io.js'
 import path from 'path'
@@ -71,6 +72,7 @@ app.use('/api/v1/message', messageRoutes);
 app.use('/api/v1/notification', notificationRoutes);
 app.use('/api/v1/story', storyRoutes);
 app.use('/api/v1/ai', aiRoutes);
+app.use('/api/v1/push', pushRoutes);
 
 //Serve the static frontend build (production single-service deploy)
 if (isProduction) {

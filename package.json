@@ -14,7 +14,7 @@
   "keywords": [],
   "author": "Mohit Patel",
   "license": "ISC",
-  "description": "SastaGram \u2014 MERN social media platform with real-time chat",
+  "description": "SastaGram — MERN social media platform with real-time chat",
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "cloudinary": "^2.4.0",
@@ -31,7 +31,8 @@
     "mongoose": "^8.5.2",
     "multer": "^1.4.5-lts.1",
     "sharp": "^0.33.5",
-    "socket.io": "^4.7.5"
+    "socket.io": "^4.7.5",
+    "web-push": "^3.6.7"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",

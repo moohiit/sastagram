@@ -4,6 +4,8 @@ import { Message } from "../models/message.model.js";
 import { Post } from "../models/post.model.js";
 import { getRecieverSocketId } from "../socket.io/socket.io.js";
 import { io } from "../socket.io/socket.io.js";
+import { User } from "../models/user.model.js";
+import { isPushEnabled, sendPushTo } from "../utils/webPush.js";
 
 // Shared-post population shape used everywhere a message is returned.
 const POST_POPULATE = {
@@ -63,6 +65,18 @@ export const sendMessage = async (req, res) => {
     const recieverSocketId = getRecieverSocketId(recieverId);
     if (recieverSocketId) {
       io.to(recieverSocketId).emit('newMessage',newMessage)
+    } else if (isPushEnabled()) {
+      // Recipient is offline — web push (fire-and-forget, never fails the send).
+      try {
+        const sender = await User.findById(senderId).select("username");
+        await sendPushTo(recieverId, {
+          title: "SastaGram",
+          body: `New message from ${sender?.username || "someone"}`,
+          url: "/messages",
+        });
+      } catch (error) {
+        console.error("push for message failed:", error.message);
+      }
     }
     return res.status(201).json({
       message: "Message sent successfully",
