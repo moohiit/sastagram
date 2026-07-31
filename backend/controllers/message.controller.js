@@ -1,8 +1,16 @@
 import mongoose from "mongoose";
 import { Conversation } from "../models/conversation.model.js";
 import { Message } from "../models/message.model.js";
+import { Post } from "../models/post.model.js";
 import { getRecieverSocketId } from "../socket.io/socket.io.js";
 import { io } from "../socket.io/socket.io.js";
+
+// Shared-post population shape used everywhere a message is returned.
+const POST_POPULATE = {
+  path: "post",
+  select: "image caption author",
+  populate: { path: "author", select: "username profilePicture" },
+};
 
 // send message controller
 export const sendMessage = async (req, res) => {
@@ -10,8 +18,23 @@ export const sendMessage = async (req, res) => {
     const senderId = req.id;
     const recieverId = req.params.id;
     // console.log("RecieverId: ",recieverId);
-    
-    const { message } = req.body;
+
+    const { message, postId } = req.body;
+    if (!postId && !(message && message.trim())) {
+      return res.status(400).json({
+        success: false,
+        message: "Message text or a shared post is required",
+      });
+    }
+    if (postId) {
+      const sharedPost = await Post.findById(postId).select("_id");
+      if (!sharedPost) {
+        return res.status(404).json({
+          success: false,
+          message: "Post not found",
+        });
+      }
+    }
     let conversation = await Conversation.findOne({
       participants: { $all: [senderId, recieverId] },
     });
@@ -24,6 +47,7 @@ export const sendMessage = async (req, res) => {
       senderId,
       recieverId,
       message,
+      ...(postId ? { post: postId } : {}),
     });
     if (newMessage) {
       conversation.messages.push(newMessage._id);
@@ -31,6 +55,9 @@ export const sendMessage = async (req, res) => {
     // new message saved to conversation
     await newMessage.save();
     await conversation.save();
+    if (newMessage.post) {
+      await newMessage.populate(POST_POPULATE);
+    }
 
     //Socket.io integration for realtime messages
     const recieverSocketId = getRecieverSocketId(recieverId);
@@ -80,7 +107,10 @@ export const getMessage = async (req, res) => {
       if (otherSocketId) io.to(otherSocketId).emit("messagesRead", { by: senderId });
     }
 
-    const page = await Message.find(query).sort({ _id: -1 }).limit(limit + 1);
+    const page = await Message.find(query)
+      .sort({ _id: -1 })
+      .limit(limit + 1)
+      .populate(POST_POPULATE);
     const hasMore = page.length > limit;
     if (hasMore) page.pop();
     page.reverse(); // chronological order for the client
@@ -136,7 +166,21 @@ export const getConversations = async (req, res) => {
       {
         $group: {
           _id: "$counterpart",
-          lastMessage: { $first: "$message" },
+          lastMessage: {
+            // Post-share messages without text preview as "Shared a post".
+            $first: {
+              $cond: [
+                {
+                  $and: [
+                    { $gt: ["$post", null] },
+                    { $eq: [{ $ifNull: ["$message", ""] }, ""] },
+                  ],
+                },
+                "Shared a post",
+                "$message",
+              ],
+            },
+          },
           lastMessageAt: { $first: "$createdAt" },
           lastSenderId: { $first: "$senderId" },
           unread: {

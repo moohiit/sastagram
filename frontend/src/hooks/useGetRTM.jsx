@@ -43,7 +43,7 @@ const useGetRTM = () => {
         const known = (auth.followings || []).find((f) => f?._id === senderId);
         d(upsertConversation({
           userId: senderId,
-          lastMessage: newMessage.message,
+          lastMessage: newMessage.message || (newMessage.post ? "Shared a post" : ""),
           lastMessageAt: newMessage.createdAt || new Date().toISOString(),
           lastSenderId: senderId,
           unreadDelta: isOpenThread ? 0 : 1,

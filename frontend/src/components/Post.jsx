@@ -12,6 +12,7 @@ import PostHeader from './feed/PostHeader'
 import PostActions from './feed/PostActions'
 import PostCaption from './feed/PostCaption'
 import EditCaptionDialog from './feed/EditCaptionDialog'
+import SharePostDialog from './feed/SharePostDialog'
 import './feed/feed.css'
 
 const DOUBLE_TAP_MS = 300
@@ -25,6 +26,7 @@ function Post({ post }) {
   const [comment, setComment] = useState('')
   const [commentsOpen, setCommentsOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [liked, setLiked] = useState(post.likes.includes(user?._id))
   const [likeCount, setLikeCount] = useState(post.likes.length)
@@ -245,7 +247,7 @@ function Post({ post }) {
         bookmarked={bookmarked}
         onLike={() => toggleLike()}
         onComment={() => setCommentsOpen(true)}
-        onShare={copyLinkHandler}
+        onShare={() => setShareOpen(true)}
         onBookmark={bookmarkHandler}
       />
 
@@ -298,6 +300,12 @@ function Post({ post }) {
 
       <CommentDialog open={commentsOpen} setOpen={setCommentsOpen} post={post} />
       <EditCaptionDialog open={editOpen} setOpen={setEditOpen} post={post} />
+      <SharePostDialog
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        post={post}
+        onCopyLink={copyLinkHandler}
+      />
     </article>
   )
 }

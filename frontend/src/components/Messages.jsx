@@ -4,8 +4,42 @@ import { Link } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Button } from './ui/button';
+import { cdn } from '@/lib/cdn';
 import { timeAgo } from '@/lib/utils';
 import useGetAllMessage from '@/hooks/useGetAllMessage';
+import CommentDialog from './CommentDialog';
+
+// Compact shared-post card rendered inside a message bubble.
+const SharedPostCard = ({ post, onOpen }) => (
+  <div
+    onClick={(e) => {
+      e.stopPropagation();
+      onOpen(post);
+    }}
+    className='w-56 max-w-full bg-white border border-gray-200 rounded-lg overflow-hidden cursor-pointer'
+  >
+    <div className='flex items-center gap-2 px-2.5 py-2'>
+      <Avatar className='h-6 w-6'>
+        <AvatarImage src={post?.author?.profilePicture} />
+        <AvatarFallback>
+          {post?.author?.username?.slice(0, 2)?.toUpperCase() || 'US'}
+        </AvatarFallback>
+      </Avatar>
+      <span className='text-xs font-semibold text-gray-900 truncate'>
+        {post?.author?.username}
+      </span>
+    </div>
+    <img
+      src={cdn(post?.image, 300)}
+      alt={post?.caption ? post.caption.slice(0, 60) : 'Shared post'}
+      loading='lazy'
+      className='w-full aspect-square object-cover'
+    />
+    {post?.caption && (
+      <p className='px-2.5 py-1.5 text-xs text-gray-500 truncate'>{post.caption}</p>
+    )}
+  </div>
+);
 
 const LOAD_OLDER_THRESHOLD_PX = 60;
 
@@ -35,6 +69,15 @@ const Messages = ({ selectedUser }) => {
   const { messages, seen } = useSelector((store) => store.chat);
   const { user } = useSelector((store) => store.auth);
   const [expandedId, setExpandedId] = useState(null);
+  // Shared-post card clicked → open it in CommentDialog (local-state mode,
+  // same pattern Explore uses for posts outside the feed slice).
+  const [sharedPost, setSharedPost] = useState(null);
+  const [sharedPostOpen, setSharedPostOpen] = useState(false);
+
+  const openSharedPost = (post) => {
+    setSharedPost(post);
+    setSharedPostOpen(true);
+  };
 
   const containerRef = useRef(null);
   const restoreRef = useRef(null); // scroll metrics captured before a prepend
@@ -154,9 +197,12 @@ const Messages = ({ selectedUser }) => {
                   <div
                     onClick={() => setExpandedId(expanded ? null : msg._id)}
                     title={msg.createdAt ? new Date(msg.createdAt).toLocaleString() : undefined}
-                    className={`px-3.5 py-2 max-w-[75%] text-sm break-words cursor-pointer ${bubbleShape} ${mine ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-900'}`}
+                    className={`${msg.post ? 'p-1.5' : 'px-3.5 py-2'} max-w-[75%] text-sm break-words cursor-pointer ${bubbleShape} ${mine ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-900'}`}
                   >
-                    {msg.message}
+                    {msg.post && <SharedPostCard post={msg.post} onOpen={openSharedPost} />}
+                    {msg.message && (
+                      <div className={msg.post ? 'px-2 pt-1.5 pb-0.5' : ''}>{msg.message}</div>
+                    )}
                   </div>
                 </div>
                 {expanded && (
@@ -170,6 +216,10 @@ const Messages = ({ selectedUser }) => {
 
           {showSeen && (
             <div className='text-xs text-gray-400 text-right mt-1 pr-1'>Seen</div>
+          )}
+
+          {sharedPost && (
+            <CommentDialog open={sharedPostOpen} setOpen={setSharedPostOpen} post={sharedPost} />
           )}
         </>
       )}
