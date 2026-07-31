@@ -14,7 +14,7 @@ Sequential build order. Status: ✅ done · 🔨 in progress · ⬜ pending
 | 8 | Last-active status in DMs | ✅ | "Active 5m ago" |
 | 9 | Web push notifications | ✅ | Service worker + VAPID |
 | 10 | Redis socket adapter | ✅ | Horizontal scaling |
-| 11 | Public read-only API + Swagger | ⬜ | Rate-limited |
+| 11 | Public read-only API + Swagger | ✅ | Rate-limited |
 | 12 | Phase-5 schema migration | ⬜ | Likes/follows → collections + MIGRATION.md |
 
 AI features degrade gracefully when GEMINI_API_KEY is not configured

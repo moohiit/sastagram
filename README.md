@@ -165,6 +165,23 @@ Socket.io events: `getOnlineUsers` (presence), `newMessage` (chat), `notificatio
 
 ---
 
+## Public API
+
+A versioned, read-only API for developers — no authentication required. Base URL: `/api/public/v1` (live: `https://sastagram.mohitpatel.org/api/public/v1`).
+
+| Endpoint | Description |
+|---|---|
+| `GET /posts?cursor&limit` | Public feed, cursor-paginated (limit ≤ 20) |
+| `GET /posts/:id` | Single post |
+| `GET /users/:username` | Public profile with post/follower/following counts |
+| `GET /search/posts?q=` | Post search (semantic when AI is enabled, caption text fallback) |
+
+Interactive OpenAPI docs (Swagger UI): [`/api/public/docs`](https://sastagram.mohitpatel.org/api/public/docs).
+
+Rate limit: **60 requests per minute per IP** (standard `RateLimit-*` headers; `429` when exceeded). Responses expose only public data — internal fields such as liker ids, comment bodies, and embeddings are never included.
+
+---
+
 ## Author
 
 **Mohit Patel** — https://mohitpatel.org · GitHub [@moohiit](https://github.com/moohiit)

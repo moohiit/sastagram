@@ -11,6 +11,9 @@ import notificationRoutes from './routes/notification.routes.js';
 import storyRoutes from './routes/story.routes.js';
 import aiRoutes from './routes/ai.routes.js';
 import pushRoutes from './routes/push.routes.js';
+import publicApiRoutes from './routes/publicApi.routes.js';
+import swaggerUi from 'swagger-ui-express';
+import openapiSpec from './docs/openapi.js';
 import errorHandler from './middlewares/errorHandler.js';
 import { app } from './socket.io/socket.io.js'
 import path from 'path'
@@ -57,9 +60,18 @@ if (!isTest) {
     standardHeaders: true,
     legacyHeaders: false,
   });
+  // The public read-only API gets its own, tighter budget (per IP)
+  const publicApiLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    limit: 60,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { success: false, message: "Too many requests, please try again later" },
+  });
   app.use('/api/v1/user/register', authLimiter);
   app.use('/api/v1/user/login', authLimiter);
   app.use('/api/v1', apiLimiter);
+  app.use('/api/public/v1', publicApiLimiter);
 }
 
 // Health check for uptime monitors / Render
@@ -73,6 +85,13 @@ app.use('/api/v1/notification', notificationRoutes);
 app.use('/api/v1/story', storyRoutes);
 app.use('/api/v1/ai', aiRoutes);
 app.use('/api/v1/push', pushRoutes);
+
+// Public read-only API (unauthenticated, own rate limiter above) + docs.
+// Swagger UI works in production too: helmet runs with
+// contentSecurityPolicy:false, so its inline scripts/styles are not blocked,
+// and both routes are mounted before the SPA catch-all.
+app.use('/api/public/v1', publicApiRoutes);
+app.use('/api/public/docs', swaggerUi.serve, swaggerUi.setup(openapiSpec));
 
 //Serve the static frontend build (production single-service deploy)
 if (isProduction) {
