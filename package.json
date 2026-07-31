@@ -7,14 +7,14 @@
     "dev": "concurrently -n api,web -c blue,green \"npm:dev:backend\" \"npm:dev:frontend\"",
     "dev:backend": "nodemon backend/server.js",
     "dev:frontend": "npm run dev --prefix frontend",
-    "build": "npm install --prefix frontend && npm run build --prefix frontend",
+    "build": "npm install && npm install --prefix frontend && npm run build --prefix frontend",
     "start": "node backend/server.js",
     "test": "vitest run"
   },
   "keywords": [],
   "author": "Mohit Patel",
   "license": "ISC",
-  "description": "SastaGram — MERN social media platform with real-time chat",
+  "description": "SastaGram \u2014 MERN social media platform with real-time chat",
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "cloudinary": "^2.4.0",
