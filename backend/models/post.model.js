@@ -1,5 +1,22 @@
 import mongoose from "mongoose";
 
+// Optional single-choice poll attached to a post. Votes are stored as user id
+// arrays per option — fine at current scale, but could grow large on viral
+// posts (they ride along on every post fetch); revisit with counters if needed.
+const pollSchema = new mongoose.Schema(
+  {
+    question: { type: String, required: true },
+    options: [
+      {
+        _id: false,
+        text: { type: String, required: true },
+        votes: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+      },
+    ],
+  },
+  { _id: false }
+);
+
 const postSchema = new mongoose.Schema(
   {
     caption: { type: String, default: "" },
@@ -26,6 +43,8 @@ const postSchema = new mongoose.Schema(
         ref: "Comment"
       }
     ],
+    // Absent (undefined) when the post has no poll
+    poll: { type: pollSchema, default: undefined },
   },
   { timestamps: true }
 );

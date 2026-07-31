@@ -145,6 +145,91 @@ describe('GET /api/v1/post/search', () => {
   });
 });
 
+describe('polls', () => {
+  // Poll posts are created via the model (HTTP addpost touches Cloudinary)
+  const makePollPost = () =>
+    Post.create({
+      caption: 'poll post',
+      image: 'https://example.com/fake-image.jpg',
+      author: author.user._id,
+      poll: {
+        question: 'Best season?',
+        options: [
+          { text: 'Summer', votes: [] },
+          { text: 'Winter', votes: [] },
+          { text: 'Monsoon', votes: [] },
+        ],
+      },
+    });
+
+  it('stores a poll on the post and serves it in the feed', async () => {
+    await Post.deleteMany({});
+    const post = await makePollPost();
+    expect(post.poll.question).toBe('Best season?');
+    expect(post.poll.options).toHaveLength(3);
+
+    const feed = await request(app).get('/api/v1/post/all').set('Cookie', author.cookie);
+    const served = feed.body.posts.find((p) => p._id === post._id.toString());
+    expect(served.poll.options.map((o) => o.text)).toEqual(['Summer', 'Winter', 'Monsoon']);
+  });
+
+  it('records a vote and returns counts + userOption', async () => {
+    const post = await makePollPost();
+    const res = await request(app)
+      .post(`/api/v1/post/${post._id}/vote`)
+      .set('Cookie', other.cookie)
+      .send({ optionIndex: 1 });
+    expect(res.status).toBe(200);
+    expect(res.body.counts).toEqual([0, 1, 0]);
+    expect(res.body.totalVotes).toBe(1);
+    expect(res.body.userOption).toBe(1);
+
+    const fresh = await Post.findById(post._id);
+    expect(fresh.poll.options[1].votes.map(String)).toContain(other.user._id);
+  });
+
+  it('re-voting switches the option instead of double counting', async () => {
+    const post = await makePollPost();
+    await request(app)
+      .post(`/api/v1/post/${post._id}/vote`)
+      .set('Cookie', other.cookie)
+      .send({ optionIndex: 0 });
+    const res = await request(app)
+      .post(`/api/v1/post/${post._id}/vote`)
+      .set('Cookie', other.cookie)
+      .send({ optionIndex: 2 });
+    expect(res.status).toBe(200);
+    expect(res.body.counts).toEqual([0, 0, 1]);
+    expect(res.body.totalVotes).toBe(1);
+
+    const fresh = await Post.findById(post._id);
+    expect(fresh.poll.options[0].votes).toHaveLength(0);
+    expect(fresh.poll.options[2].votes.map(String)).toContain(other.user._id);
+  });
+
+  it('rejects an out-of-range or non-integer option index with 400', async () => {
+    const post = await makePollPost();
+    for (const optionIndex of [3, -1, 'abc']) {
+      const res = await request(app)
+        .post(`/api/v1/post/${post._id}/vote`)
+        .set('Cookie', other.cookie)
+        .send({ optionIndex });
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+    }
+  });
+
+  it('rejects voting on a post without a poll with 400', async () => {
+    const post = await makePost('no poll here');
+    const res = await request(app)
+      .post(`/api/v1/post/${post._id}/vote`)
+      .set('Cookie', other.cookie)
+      .send({ optionIndex: 0 });
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+  });
+});
+
 describe('PUT /api/v1/post/:id/caption', () => {
   it('forbids a non-author from editing the caption', async () => {
     const post = await makePost('original caption');

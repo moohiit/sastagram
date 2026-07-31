@@ -7,13 +7,18 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from './ui/dial
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
 import { Textarea } from './ui/textarea'
 import { Button } from './ui/button'
-import { ImagePlus, Loader2, Sparkles, X } from 'lucide-react'
+import { Input } from './ui/input'
+import { BarChart2, ImagePlus, Loader2, Plus, Sparkles, X } from 'lucide-react'
 import useAiEnabled from '@/hooks/useAiEnabled'
 import { readFileAsDataURL } from '@/lib/utils'
 import { setPosts } from '@/redux/postSlice'
 
 const MAX_CAPTION = 2200
 const MAX_FILE_MB = 10
+const MAX_POLL_QUESTION = 150
+const MAX_POLL_OPTION = 80
+const MIN_POLL_OPTIONS = 2
+const MAX_POLL_OPTIONS = 4
 
 // Create-post dialog. Rendered by MainLayout via lifted { open, setOpen } state.
 function CreatePost({ open, setOpen }) {
@@ -25,6 +30,9 @@ function CreatePost({ open, setOpen }) {
   const [loading, setLoading] = useState(false)
   const [suggesting, setSuggesting] = useState(false)
   const [suggestions, setSuggestions] = useState([])
+  const [pollOpen, setPollOpen] = useState(false)
+  const [pollQuestion, setPollQuestion] = useState('')
+  const [pollOptions, setPollOptions] = useState(['', ''])
   const aiEnabled = useAiEnabled()
   const { user } = useSelector((store) => store.auth)
   const { posts } = useSelector((store) => store.post)
@@ -81,12 +89,38 @@ function CreatePost({ open, setOpen }) {
     }
   }
 
+  const resetPoll = () => {
+    setPollOpen(false)
+    setPollQuestion('')
+    setPollOptions(['', ''])
+  }
+
+  const togglePoll = () => {
+    if (pollOpen) resetPoll()
+    else setPollOpen(true)
+  }
+
+  const setPollOption = (index, value) => {
+    setPollOptions((opts) => opts.map((o, i) => (i === index ? value : o)))
+  }
+
+  const addPollOption = () => {
+    setPollOptions((opts) => (opts.length < MAX_POLL_OPTIONS ? [...opts, ''] : opts))
+  }
+
+  const removePollOption = (index) => {
+    setPollOptions((opts) =>
+      opts.length > MIN_POLL_OPTIONS ? opts.filter((_, i) => i !== index) : opts
+    )
+  }
+
   const resetAndClose = () => {
     if (loading) return
     setFile(null)
     setImagePreview('')
     setCaption('')
     setDragOver(false)
+    resetPoll()
     setOpen(false)
   }
 
@@ -95,9 +129,27 @@ function CreatePost({ open, setOpen }) {
       toast.error('Please select a photo first')
       return
     }
+    // Client-side poll validation, mirroring the server rules
+    let trimmedPollOptions = null
+    if (pollOpen) {
+      const question = pollQuestion.trim()
+      if (!question || question.length > MAX_POLL_QUESTION) {
+        toast.error(`Poll question is required (max ${MAX_POLL_QUESTION} characters)`)
+        return
+      }
+      trimmedPollOptions = pollOptions.map((o) => o.trim())
+      if (trimmedPollOptions.some((o) => !o || o.length > MAX_POLL_OPTION)) {
+        toast.error(`Each poll option must be non-empty (max ${MAX_POLL_OPTION} characters)`)
+        return
+      }
+    }
     const formData = new FormData()
     formData.append('caption', caption)
     formData.append('image', file)
+    if (pollOpen && trimmedPollOptions) {
+      formData.append('pollQuestion', pollQuestion.trim())
+      formData.append('pollOptions', JSON.stringify(trimmedPollOptions))
+    }
     try {
       setLoading(true)
       const response = await axios.post('/api/v1/post/addpost', formData, {
@@ -110,6 +162,7 @@ function CreatePost({ open, setOpen }) {
         setFile(null)
         setCaption('')
         setImagePreview('')
+        resetPoll()
         setOpen(false)
         navigate('/')
       }
@@ -220,6 +273,64 @@ function CreatePost({ open, setOpen }) {
               {caption.length}/{MAX_CAPTION}
             </span>
           </div>
+        </div>
+
+        <div className='flex flex-col gap-2'>
+          <button
+            onClick={togglePoll}
+            disabled={loading}
+            aria-label={pollOpen ? 'Remove poll' : 'Add poll'}
+            className={`self-start inline-flex items-center gap-1.5 text-sm font-semibold cursor-pointer disabled:opacity-50 ${
+              pollOpen ? 'text-red-500 hover:text-red-600' : 'text-blue-500 hover:text-blue-600'
+            }`}
+          >
+            <BarChart2 size={14} />
+            {pollOpen ? 'Remove poll' : 'Add poll'}
+          </button>
+
+          {pollOpen && (
+            <div className='flex flex-col gap-2 border border-gray-200 rounded-lg p-3'>
+              <Input
+                value={pollQuestion}
+                maxLength={MAX_POLL_QUESTION}
+                onChange={(e) => setPollQuestion(e.target.value)}
+                placeholder='Ask a question...'
+                disabled={loading}
+                className='h-9 text-sm border-gray-200 focus-visible:ring-transparent'
+              />
+              {pollOptions.map((option, index) => (
+                <div key={index} className='flex items-center gap-2'>
+                  <Input
+                    value={option}
+                    maxLength={MAX_POLL_OPTION}
+                    onChange={(e) => setPollOption(index, e.target.value)}
+                    placeholder={`Option ${index + 1}`}
+                    disabled={loading}
+                    className='h-9 text-sm border-gray-200 focus-visible:ring-transparent'
+                  />
+                  {pollOptions.length > MIN_POLL_OPTIONS && (
+                    <button
+                      onClick={() => removePollOption(index)}
+                      disabled={loading}
+                      aria-label={`Remove option ${index + 1}`}
+                      className='text-gray-400 hover:text-red-500 cursor-pointer disabled:opacity-50'
+                    >
+                      <X size={16} />
+                    </button>
+                  )}
+                </div>
+              ))}
+              {pollOptions.length < MAX_POLL_OPTIONS && (
+                <button
+                  onClick={addPollOption}
+                  disabled={loading}
+                  className='self-start inline-flex items-center gap-1 text-sm font-semibold text-blue-500 hover:text-blue-600 cursor-pointer disabled:opacity-50'
+                >
+                  <Plus size={14} /> Add option
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         <Button

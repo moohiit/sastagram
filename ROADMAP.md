@@ -10,7 +10,7 @@ Sequential build order. Status: ✅ done · 🔨 in progress · ⬜ pending
 | 4 | Auto alt-text | ✅ | Background Gemini description on upload |
 | 5 | AI comment moderation | ✅ | Soft-block toxic comments |
 | 6 | Share post to DM | ✅ | Post bubble in chat |
-| 7 | Polls on posts | ⬜ | Realtime votes via socket |
+| 7 | Polls on posts | ✅ | Realtime votes via socket |
 | 8 | Last-active status in DMs | ⬜ | "Active 5m ago" |
 | 9 | Web push notifications | ⬜ | Service worker + VAPID |
 | 10 | Redis socket adapter | ⬜ | Horizontal scaling |

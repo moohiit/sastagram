@@ -7,11 +7,39 @@ import { notify } from "../utils/notify.js";
 import { isToxicComment } from "../utils/moderation.js";
 import { enrichPostAI } from "../utils/postAI.js";
 import { isAiEnabled, embedText } from "../utils/gemini.js";
+import { io } from "../socket.io/socket.io.js";
+
+const POLL_QUESTION_MAX = 150;
+const POLL_OPTION_MAX = 80;
+
+// Parse + validate the optional poll fields from a multipart body.
+// Returns { poll } (undefined when no poll was sent) or { error } for a 400.
+const parsePollInput = (pollQuestion, pollOptions) => {
+  if (pollQuestion === undefined && pollOptions === undefined) return {};
+  const question = (pollQuestion || "").toString().trim();
+  if (!question || question.length > POLL_QUESTION_MAX) {
+    return { error: `Poll question is required (max ${POLL_QUESTION_MAX} characters)` };
+  }
+  let options;
+  try {
+    options = JSON.parse(pollOptions);
+  } catch {
+    return { error: "Poll options must be a JSON array" };
+  }
+  if (!Array.isArray(options) || options.length < 2 || options.length > 4) {
+    return { error: "Poll needs 2 to 4 options" };
+  }
+  const texts = options.map((o) => (typeof o === "string" ? o.trim() : ""));
+  if (texts.some((t) => !t || t.length > POLL_OPTION_MAX)) {
+    return { error: `Each poll option must be non-empty (max ${POLL_OPTION_MAX} characters)` };
+  }
+  return { poll: { question, options: texts.map((text) => ({ text, votes: [] })) } };
+};
 
 //Add new Post controller
 export const addNewPost = async (req, res) => {
   try {
-    const { caption } = req.body;
+    const { caption, pollQuestion, pollOptions } = req.body;
     const image = req.file;
     const authorId = req.id;
     if (!image) {
@@ -19,6 +47,11 @@ export const addNewPost = async (req, res) => {
         message: "Image required",
         success: true,
       });
+    }
+    // Validate the optional poll before any upload work
+    const { poll, error: pollError } = parsePollInput(pollQuestion, pollOptions);
+    if (pollError) {
+      return res.status(400).json({ message: pollError, success: false });
     }
     const optimizedImageBuffer = await sharp(image.buffer)
       .resize({
@@ -46,6 +79,7 @@ export const addNewPost = async (req, res) => {
       caption,
       image: imageUrl,
       author: authorId,
+      poll,
     });
     if (!post) {
       return res.status(500).json({
@@ -479,6 +513,56 @@ export const deleteComment = async (req, res) => {
       await post.updateOne({ $pull: { comments: comment._id } });
     }
     return res.status(200).json({ message: "Comment deleted", success: true, commentId: comment._id });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+// Vote on a post's poll (single-choice, changeable). Removes the voter from
+// every option, then adds them to the chosen one — two atomic updateOne ops.
+// Broadcasts "pollUpdate" to everyone (counts are public data).
+export const votePoll = async (req, res) => {
+  try {
+    const postId = req.params.id;
+    const voterId = req.id;
+    const { optionIndex } = req.body;
+
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ message: "Post not found", success: false });
+    }
+    if (!post.poll) {
+      return res.status(400).json({ message: "This post has no poll", success: false });
+    }
+    const index = Number(optionIndex);
+    if (!Number.isInteger(index) || index < 0 || index >= post.poll.options.length) {
+      return res.status(400).json({ message: "Invalid poll option", success: false });
+    }
+
+    // Remove any previous vote across all options, then add the new one
+    await Post.updateOne(
+      { _id: postId },
+      { $pull: { "poll.options.$[].votes": voterId } }
+    );
+    await Post.updateOne(
+      { _id: postId },
+      { $addToSet: { [`poll.options.${index}.votes`]: voterId } }
+    );
+
+    const updated = await Post.findById(postId).select("poll");
+    const counts = updated.poll.options.map((o) => o.votes.length);
+    const totalVotes = counts.reduce((sum, n) => sum + n, 0);
+
+    io.emit("pollUpdate", { postId, counts, totalVotes });
+
+    return res.status(200).json({
+      message: "Vote recorded",
+      success: true,
+      counts,
+      totalVotes,
+      userOption: index,
+    });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ success: false, message: "Internal server error" });

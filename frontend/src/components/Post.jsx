@@ -11,6 +11,7 @@ import CommentDialog from './CommentDialog'
 import PostHeader from './feed/PostHeader'
 import PostActions from './feed/PostActions'
 import PostCaption from './feed/PostCaption'
+import PostPoll from './feed/PostPoll'
 import EditCaptionDialog from './feed/EditCaptionDialog'
 import SharePostDialog from './feed/SharePostDialog'
 import './feed/feed.css'
@@ -260,6 +261,8 @@ function Post({ post }) {
       )}
 
       <PostCaption post={post} />
+
+      {post.poll && <PostPoll post={post} />}
 
       {comments.length > 0 && (
         <button
