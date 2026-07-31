@@ -8,6 +8,7 @@ import userRoutes from "./routes/user.routes.js";
 import postRoutes from './routes/post.routes.js';
 import messageRoutes from './routes/message.routes.js';
 import notificationRoutes from './routes/notification.routes.js';
+import aiRoutes from './routes/ai.routes.js';
 import errorHandler from './middlewares/errorHandler.js';
 import { app } from './socket.io/socket.io.js'
 import path from 'path'
@@ -67,6 +68,7 @@ app.use('/api/v1/user', userRoutes);
 app.use('/api/v1/post', postRoutes);
 app.use('/api/v1/message', messageRoutes);
 app.use('/api/v1/notification', notificationRoutes);
+app.use('/api/v1/ai', aiRoutes);
 
 //Serve the static frontend build (production single-service deploy)
 if (isProduction) {

@@ -7,7 +7,8 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from './ui/dial
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
 import { Textarea } from './ui/textarea'
 import { Button } from './ui/button'
-import { ImagePlus, Loader2, X } from 'lucide-react'
+import { ImagePlus, Loader2, Sparkles, X } from 'lucide-react'
+import useAiEnabled from '@/hooks/useAiEnabled'
 import { readFileAsDataURL } from '@/lib/utils'
 import { setPosts } from '@/redux/postSlice'
 
@@ -22,6 +23,9 @@ function CreatePost({ open, setOpen }) {
   const [caption, setCaption] = useState('')
   const [dragOver, setDragOver] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [suggesting, setSuggesting] = useState(false)
+  const [suggestions, setSuggestions] = useState([])
+  const aiEnabled = useAiEnabled()
   const { user } = useSelector((store) => store.auth)
   const { posts } = useSelector((store) => store.post)
   const dispatch = useDispatch()
@@ -56,6 +60,25 @@ function CreatePost({ open, setOpen }) {
   const removeImage = () => {
     setFile(null)
     setImagePreview('')
+    setSuggestions([])
+  }
+
+  const suggestCaptions = async () => {
+    if (!file || suggesting) return
+    const formData = new FormData()
+    formData.append('image', file)
+    try {
+      setSuggesting(true)
+      const response = await axios.post('/api/v1/ai/captions', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        withCredentials: true,
+      })
+      if (response.data.success) setSuggestions(response.data.captions)
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Caption suggestions unavailable')
+    } finally {
+      setSuggesting(false)
+    }
   }
 
   const resetAndClose = () => {
@@ -156,6 +179,32 @@ function CreatePost({ open, setOpen }) {
           accept='image/*'
           className='hidden'
         />
+
+        {aiEnabled && imagePreview && (
+          <div className='flex flex-col gap-2'>
+            <button
+              onClick={suggestCaptions}
+              disabled={suggesting || loading}
+              className='self-start inline-flex items-center gap-1.5 text-sm font-semibold text-blue-500 hover:text-blue-600 disabled:opacity-50'
+            >
+              {suggesting ? <Loader2 size={14} className='animate-spin' /> : <Sparkles size={14} />}
+              {suggesting ? 'Thinking…' : 'Suggest captions'}
+            </button>
+            {suggestions.length > 0 && (
+              <div className='flex flex-wrap gap-2'>
+                {suggestions.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => setCaption(s.slice(0, MAX_CAPTION))}
+                    className='text-xs border border-gray-200 rounded-full px-3 py-1.5 text-gray-900 hover:border-blue-500 hover:text-blue-600 text-left'
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         <div>
           <Textarea
