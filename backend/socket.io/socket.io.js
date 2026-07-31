@@ -3,6 +3,7 @@ import express from "express";
 import http from "http";
 import jwt from "jsonwebtoken";
 import cookie from "cookie";
+import { User } from "../models/user.model.js";
 
 const app = express();
 const server = http.createServer(app);
@@ -57,6 +58,8 @@ io.on("connection", (socket) => {
     // Only clear the mapping if this socket is still the active one for the user
     if (userSocketMap[userId] === socket.id) {
       delete userSocketMap[userId];
+      // Best-effort last-active stamp for "Active Xm ago" in DMs
+      User.findByIdAndUpdate(userId, { lastActiveAt: new Date() }).catch(() => {});
     }
     io.emit("getOnlineUsers", Object.keys(userSocketMap));
   });

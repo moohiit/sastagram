@@ -11,7 +11,7 @@ Sequential build order. Status: ✅ done · 🔨 in progress · ⬜ pending
 | 5 | AI comment moderation | ✅ | Soft-block toxic comments |
 | 6 | Share post to DM | ✅ | Post bubble in chat |
 | 7 | Polls on posts | ✅ | Realtime votes via socket |
-| 8 | Last-active status in DMs | ⬜ | "Active 5m ago" |
+| 8 | Last-active status in DMs | ✅ | "Active 5m ago" |
 | 9 | Web push notifications | ⬜ | Service worker + VAPID |
 | 10 | Redis socket adapter | ⬜ | Horizontal scaling |
 | 11 | Public read-only API + Swagger | ⬜ | Rate-limited |
