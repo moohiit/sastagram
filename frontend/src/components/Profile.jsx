@@ -1,157 +1,150 @@
-import useGetUserProfile from '@/hooks/useGetUserProfile';
-import { cdn } from '@/lib/cdn'
-import React, { useState } from 'react'
-import { useDispatch, useSelector } from 'react-redux'
+import React, { useEffect, useState } from 'react';
+import { useSelector } from 'react-redux';
 import { Link, useParams } from 'react-router-dom';
+import { Bookmark, Grid3x3 } from 'lucide-react';
+import useGetUserProfile from '@/hooks/useGetUserProfile';
+import { cdn } from '@/lib/cdn';
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { Button } from './ui/button';
-import { Dialog } from '@radix-ui/react-dialog';
-import { DialogContent, DialogTrigger } from './ui/dialog';
-import { AtSign, Heart, MessageCircle, MoreHorizontal } from 'lucide-react';
-import { Badge } from './ui/badge';
-import axios from 'axios';
-import { setAuthUser } from '@/redux/authSlice';
+import FollowButton from './profile/FollowButton';
+import PostsGrid from './profile/PostsGrid';
+import ProfileSkeleton from './profile/ProfileSkeleton';
 
 const Profile = () => {
-  const params = useParams();
-  const userId = params?.id;
-  // console.log("ID:",userId);
-  const dispatch = useDispatch()
+  const { id: userId } = useParams();
   useGetUserProfile(userId);
   const { userProfile, user } = useSelector(store => store.auth);
-  const [activeTab, setActiveTab] = useState("posts");
-  const handleTabChange = (tab) => {
-    setActiveTab(tab);
-  }
-  const postsToDisplay = activeTab === "posts" ? userProfile?.posts : userProfile?.bookmarks;
+  const [activeTab, setActiveTab] = useState('posts');
 
-  //Follow and unfollow handler
-  const followUnfollowHandler = async (userId) => {
-    try {
-      const response = await axios.get(`/api/v1/user/followorunfollow/${userId}`, {
-        withCredentials: true
-      });
+  const isOwnProfile = user?._id === userId;
+  // Show the skeleton until the profile for THIS route param is in the store
+  // (userProfile may still hold a previously visited profile).
+  const isLoading = !userProfile || userProfile._id !== userId;
 
-      if (response.data.success) {
-        const newFollowingData = response.data.type === 'follow'
-          ? [...user?.following, userId]
-          : user?.following.filter(id => id !== userId);
+  useEffect(() => {
+    setActiveTab('posts');
+  }, [userId]);
 
-        // Dispatch the updated user state
-        dispatch(setAuthUser({ ...user, following: newFollowingData }));
+  if (isLoading) return <ProfileSkeleton />;
 
-        // Show success toast
-        toast.success(response.data.message);
-      }
-    } catch (error) {
-      console.error(error);
+  const postsToDisplay =
+    activeTab === 'saved' && isOwnProfile ? userProfile.bookmarks : userProfile.posts;
 
-      // Show error toast
-      toast.error(error.response?.data?.message || 'Something went wrong!');
-    }
-  }
+  const stats = [
+    { label: 'posts', count: userProfile.posts?.length ?? 0 },
+    { label: 'followers', count: userProfile.followers?.length ?? 0, to: `/${userProfile._id}/followers` },
+    { label: 'following', count: userProfile.following?.length ?? 0, to: `/${userProfile._id}/following` },
+  ];
 
+  const tabClass = isActive =>
+    `-mt-px flex cursor-pointer items-center gap-1.5 border-t py-3 text-xs font-semibold uppercase tracking-widest transition-colors ${
+      isActive ? 'border-gray-900 text-gray-900' : 'border-transparent text-gray-400 hover:text-gray-500'
+    }`;
 
   return (
-    <div className='flex flex-col m-8 justify-center items-center'>
-      <section className='flex items-center justify-start gap-4'>
-        {/* profile picture */}
-        <div className='my-4 mx-4'>
-          <Avatar className='w-40 h-40'>
-            <AvatarImage src={userProfile?.profilePicture} />
-            <AvatarFallback>MP</AvatarFallback>
-          </Avatar>
-        </div>
-        {/* User Details */}
-        <div className='flex flex-col justify-center items-start'>
-          <div className='flex gap-5 mb-1 items-center'>
-            <span className='text-gray-900 font-medium cursor-pointer'>{userProfile?.username}</span>
-            {
-              user?._id !== userProfile?._id ? (
-                user?.following.includes(userProfile?._id) ? (
-                  <>
-                    <Button onClick={() => followUnfollowHandler(userProfile?._id)} className='bg-gray-800 hover:bg-red-700 h-8'>Unfollow</Button>
-                    <Link to={`/chat/${userProfile?._id}`}>
-                    <Button className='bg-gray-800 hover:bg-[#1d7deb] h-8'>Message</Button>
-                    </Link>
-                  </>
-                ) : (
-                    <Button onClick={() => followUnfollowHandler(userProfile?._id)} variant="secondary" className='bg-[#0095F6] hover:bg-[#0087f6] h-8 text-white'>follow</Button>
-                )
-              ) : (
-                <>
-                    <Link to={"/profile/edit"}><Button className='bg-gray-800 hover:bg-gray-950 h-8'>Edit Profile</Button></Link>
-                  <Button className='bg-gray-800 hover:bg-gray-950 h-8'>View Archive</Button>
-                  <Button className='bg-gray-800 hover:bg-gray-950 h-8'>Ad Tools</Button>
-                </>
-              )
-            }
+    <div className='mx-auto w-full max-w-[935px] px-4'>
+      {/* Header */}
+      <header className='flex items-center gap-6 py-6 sm:gap-10 sm:py-10 md:gap-20'>
+        <Avatar className='h-[77px] w-[77px] shrink-0 sm:h-[150px] sm:w-[150px]'>
+          <AvatarImage src={cdn(userProfile.profilePicture, 300)} alt={userProfile.username} />
+          <AvatarFallback className='text-2xl'>
+            {userProfile.username?.[0]?.toUpperCase() || 'U'}
+          </AvatarFallback>
+        </Avatar>
 
-            <Dialog>
-              <DialogTrigger>
-                <MoreHorizontal />
-              </DialogTrigger>
-              <DialogContent className='flex flex-col gap-2 items-center justify-center w-72'>
-                <Button className='text-[white] bg-[#b90404] w-[80%]'>Block</Button>
-                <Button className='text-[white] bg-[#b90404] w-[80%]'>Report</Button>
-                <Button className='text-[white] bg-[#b90404] w-[80%]'>Spam</Button>
-                <Button className='w-[80%]'>More</Button>
-              </DialogContent>
-            </Dialog>
-          </div>
-          <div className='flex  gap-5 mb-1'>
-            <p><span className='font-semibold'> {userProfile?.posts.length}</span> Posts</p>
-            <div className='flex gap-1'>
-              <span className='font-semibold'>{userProfile?.followers.length}</span>
-              <Link to={`/${userProfile?._id}/followers`} >followers</Link>
-            </div>
-            <div className='flex gap-1'><span className='font-semibold'>{userProfile?.following.length}</span>
-            <Link to={`/${userProfile?._id}/following`}>following</Link>
-            </div>
-          </div>
-          <div className='flex flex-col'>
-            <span className='text-gray-500 font-semibold'> {userProfile?.bio}</span>
-            <Badge className='w-fit text-sm mt-1' variant={"secondary"}><AtSign /><span className='pl-1'>{userProfile?.username}</span></Badge>
-          </div>
-        </div>
-      </section>
-      <hr className="border-gray-300 border-t-2 my-4 w-full " />
-      <section className='flex flex-col my-5 items-center text-center w-full '>
-        <div className='flex items-center justify-evenly gap-10 text-sm my-4 bg-gray-100 w-full'>
-          <span className={`py-3 cursor-pointer min-w-fit ${activeTab === "posts" ? "font-bold" : ""}`} onClick={() => { handleTabChange("posts") }}>Posts</span>
-          <span className={`py-3 cursor-pointer min-w-fit ${activeTab === "saved" ? "font-bold" : ""}`} onClick={() => { handleTabChange("saved") }}>Saved</span>
-        </div>
-        <div className='grid grid-cols-3 gap-1'>
-          {
-            postsToDisplay?.length > 0 ? (
-              postsToDisplay?.map((post) => {
-                return (
-                  <div key={post?._id} className='relative group cursor-pointer'>
-                    <img src={cdn(post?.image, 500)} alt="Post Image" loading="lazy" className='rounded-sm w-full aspect-square object-cover' />
-                    <div className='absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300'>
-                      <div className='flex items-center text-white space-x-4'>
-                        <button className='flex items-center gap-2 hover:text-gray-300'>
-                          <Heart />
-                          <span>{post?.likes.length}</span>
-                        </button>
-                        <button className='flex items-center gap-2 hover:text-gray-300'>
-                          <MessageCircle />
-                          <span>{post?.comments.length}</span>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )
-              })
+        <section className='flex min-w-0 flex-1 flex-col gap-4'>
+          <div className='flex flex-wrap items-center gap-x-4 gap-y-2'>
+            <h1 className='truncate text-xl text-gray-900'>{userProfile.username}</h1>
+            {isOwnProfile ? (
+              <Link to='/profile/edit'>
+                <Button variant='secondary' className='h-8 font-semibold'>
+                  Edit profile
+                </Button>
+              </Link>
             ) : (
-              <div className='font-semibold text-gray-500'>No posts yet...😒🤡</div>
-            )
-          }
+              <div className='flex items-center gap-2'>
+                <FollowButton userId={userProfile._id} />
+                <Link to={`/chat/${userProfile._id}`}>
+                  <Button variant='secondary' className='h-8 font-semibold'>
+                    Message
+                  </Button>
+                </Link>
+              </div>
+            )}
+          </div>
 
-        </div>
-      </section>
+          {/* Stats — inline on desktop */}
+          <div className='hidden items-center gap-10 text-sm text-gray-900 sm:flex'>
+            {stats.map(s =>
+              s.to ? (
+                <Link key={s.label} to={s.to} className='cursor-pointer hover:text-gray-500'>
+                  <span className='font-semibold'>{s.count}</span> {s.label}
+                </Link>
+              ) : (
+                <span key={s.label}>
+                  <span className='font-semibold'>{s.count}</span> {s.label}
+                </span>
+              )
+            )}
+          </div>
+
+          {/* Bio — desktop */}
+          {userProfile.bio ? (
+            <p className='hidden whitespace-pre-line text-sm text-gray-900 sm:block'>
+              {userProfile.bio}
+            </p>
+          ) : null}
+        </section>
+      </header>
+
+      {/* Bio — mobile */}
+      {userProfile.bio ? (
+        <p className='whitespace-pre-line pb-4 text-sm text-gray-900 sm:hidden'>
+          {userProfile.bio}
+        </p>
+      ) : null}
+
+      {/* Stats — bordered row on mobile */}
+      <div className='grid grid-cols-3 border-y border-gray-200 py-3 text-center sm:hidden'>
+        {stats.map(s => {
+          const inner = (
+            <>
+              <span className='text-sm font-semibold text-gray-900'>{s.count}</span>
+              <span className='text-sm text-gray-500'>{s.label}</span>
+            </>
+          );
+          return s.to ? (
+            <Link key={s.label} to={s.to} className='flex cursor-pointer flex-col'>
+              {inner}
+            </Link>
+          ) : (
+            <div key={s.label} className='flex flex-col'>
+              {inner}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Tabs */}
+      <div className='flex items-center justify-center gap-12 border-t border-gray-200 max-sm:border-t-0'>
+        <button onClick={() => setActiveTab('posts')} className={tabClass(activeTab === 'posts')}>
+          <Grid3x3 size={14} /> Posts
+        </button>
+        {isOwnProfile ? (
+          <button onClick={() => setActiveTab('saved')} className={tabClass(activeTab === 'saved')}>
+            <Bookmark size={14} /> Saved
+          </button>
+        ) : null}
+      </div>
+
+      <div className='pb-8'>
+        <PostsGrid
+          posts={postsToDisplay}
+          emptyText={activeTab === 'saved' ? 'No saved posts yet' : 'No posts yet'}
+        />
+      </div>
     </div>
-  )
-}
+  );
+};
 
-export default Profile
+export default Profile;

@@ -21,7 +21,13 @@ const postSlice = createSlice({
       state.posts.push(...action.payload.posts.filter((p) => !seen.has(p._id)));
       state.nextCursor = action.payload.nextCursor ?? null;
     },
+    // Shallow-merge `changes` into the post with `_id` (e.g. caption edits).
+    updatePostById: (state, action) => {
+      const { _id, changes } = action.payload;
+      const idx = state.posts.findIndex((p) => p._id === _id);
+      if (idx !== -1) state.posts[idx] = { ...state.posts[idx], ...changes };
+    },
   },
 });
-export const { setPosts, setFeedPage, appendFeedPage } = postSlice.actions;
+export const { setPosts, setFeedPage, appendFeedPage, updatePostById } = postSlice.actions;
 export default postSlice.reducer;

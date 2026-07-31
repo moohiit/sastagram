@@ -1,107 +1,190 @@
-import React, { useState } from 'react'
-import { Input } from './ui/input'
-import { Button } from './ui/button'
-import SuggestedUsers from './SuggestedUsers'
-import { toast } from 'sonner'
-import axios from 'axios'
-import { Link } from 'react-router-dom'
-import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
-import { useDispatch, useSelector } from 'react-redux'
-import { setAuthUser } from '@/redux/authSlice'
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+import { toast } from 'sonner';
+import { Loader2, Search as SearchIcon, X } from 'lucide-react';
+import { Input } from './ui/input';
+import UserRow from './profile/UserRow';
+import SuggestedUsers from './SuggestedUsers';
 
-function Search() {
-  const [username, setUsername] = useState("")
-  const [userProfile, setUserProfile] = useState(null);
-  const { user } = useSelector(store => store.auth);
-  const isFollowing = user?.following.includes(userProfile?._id);
-  const dispatch = useDispatch();
-  //Search handler
-  const searchHandler = async () => {
-    try {
-      const response = await axios.get(`/api/v1/user/search/${username}`, {
-        withCredentials: true
-      })
-      if (response?.data.success) {
-        if (response?.data.user) {
-          setUserProfile(response?.data.user);
-        } else {
-          toast.success("User doesn't exist")
-        }
-        setUsername("");
-      }
-    } catch (error) {
-      console.error(error);
-      toast.error(error.response.data.message);
-    }
+const RECENT_KEY = 'sastagram-recent-searches';
+const MAX_RECENT = 10;
+
+const loadRecent = () => {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(RECENT_KEY));
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
   }
-  //followUnfollowHandler
-  const followUnfollowHandler = async (userId) => {
-    try {
-      const response = await axios.get(`/api/v1/user/followorunfollow/${userId}`, {
-        withCredentials: true
-      });
-      if (response.data.success) {
-        const newFollowingData = response.data.type === 'follow'
-          ? [...user?.following, userId]
-          : user?.following.filter(id => id !== userId);
-        // Dispatch the updated user state
-        dispatch(setAuthUser({ ...user, following: newFollowingData }));
-        // Show success toast
-        toast.success(response.data.message);
-      }
-    } catch (error) {
-      console.error(error);
-      // Show error toast
-      toast.error(error.response?.data?.message || 'Something went wrong!');
-    }
-  }
-  return (
-    <div className='flex flex-col w-[95%] bg-slate-50 min-h-max min-w-max border shadow-md items-center '>
-      <h1 className='font-bold text-3xl text-gray-600 m-8 '>Search bar</h1>
-      <div className='flex gap-4 m-8 mt-3 lg:w-full justify-center'>
-        <Input onChange={(e) => setUsername(e.target.value)} value={username} className=' focus-visible:ring-transparent flex-grow gap-2  rounded-lg p-6 border border-gray-300 max-w-screen-sm' placeholder='search username' />
-        {
-          username && <Button onClick={searchHandler} className='p-6'>Search</Button>
-        }
-      </div>
-      <div className='lg:grid lg:grid-cols-2 flex flex-col mb-4 gap-4 w-[80%]'>
-        <div className='flex justify-start items-start bg-slate-100 px-4 rounded-md'>
-          {
-            userProfile ? (<div key={userProfile._id} className='flex items-center gap-2 my-4'>
-              <div className='flex items-center gap-2 w-[80%]'>
-                <Link to={`/profile/${userProfile?._id}`}>
-                  <Avatar className='w-8 h-8'>
-                    <AvatarImage src={userProfile?.profilePicture} />
-                    <AvatarFallback>MP</AvatarFallback>
-                  </Avatar>
-                </Link>
-                <div className=''>
-                  <h1 className='font-semibold text-sm'>
-                    <Link to={`/profile/${userProfile?._id}`}>
-                      {userProfile?.username}
-                    </Link>
-                  </h1>
-                  <h3 className='text-gray-600 text-sm'>{userProfile?.bio || "Boi Here..."} </h3>
-                </div>
-              </div>
-              <Button
-                variant='secondary'
-                onClick={() => followUnfollowHandler(userProfile?._id)}
-                className={` bg-gray-200 hover:bg-blue-200 ml-1 font-bold cursor-pointer ${isFollowing ? 'text-[#f83b3b] hover:text-[#f53131]' : 'text-[#3BADF8] hover:text-[#31bdf5]'} `}
-              >
-                {isFollowing ? "Unfollow" : "Follow"}
-              </Button>
-            </div>) : (
-              <div className='p-4 text-center mt-4 text-gray-500 font-semibold'>
-                Your search results will be here...
-              </div>
-            )
-          }
-        </div>
-        <div><SuggestedUsers /></div>
-      </div>
+};
+
+const RowSkeleton = () => (
+  <div className='flex items-center gap-3 px-3 py-2'>
+    <div className='h-11 w-11 animate-pulse rounded-full bg-gray-200' />
+    <div className='flex flex-col gap-2'>
+      <div className='h-3 w-28 animate-pulse rounded bg-gray-200' />
+      <div className='h-3 w-40 animate-pulse rounded bg-gray-200' />
     </div>
-  )
-}
+  </div>
+);
 
-export default Search
+const Search = () => {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState(null);
+  const [searching, setSearching] = useState(false);
+  const [recent, setRecent] = useState(loadRecent);
+
+  const persistRecent = list => {
+    setRecent(list);
+    try {
+      localStorage.setItem(RECENT_KEY, JSON.stringify(list));
+    } catch {
+      // localStorage unavailable — recents just won't persist
+    }
+  };
+
+  const addRecent = u => {
+    const entry = {
+      _id: u._id,
+      username: u.username,
+      profilePicture: u.profilePicture,
+      bio: u.bio,
+    };
+    persistRecent([entry, ...recent.filter(r => r._id !== u._id)].slice(0, MAX_RECENT));
+  };
+
+  const removeRecent = id => persistRecent(recent.filter(r => r._id !== id));
+  const clearRecent = () => persistRecent([]);
+
+  // Debounced search (300ms) against GET /api/v1/user/search?q=, cancelling
+  // stale in-flight requests with an AbortController.
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 1) {
+      setResults(null);
+      setSearching(false);
+      return;
+    }
+    const controller = new AbortController();
+    setSearching(true);
+    const timer = setTimeout(async () => {
+      try {
+        const response = await axios.get('/api/v1/user/search', {
+          params: { q },
+          withCredentials: true,
+          signal: controller.signal,
+        });
+        if (response.data.success) {
+          setResults(response.data.users || []);
+        }
+        setSearching(false);
+      } catch (error) {
+        if (axios.isCancel(error) || controller.signal.aborted) return;
+        console.error(error);
+        setSearching(false);
+        toast.error(error.response?.data?.message || 'Search failed');
+      }
+    }, 300);
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+  }, [query]);
+
+  const showResults = query.trim().length >= 1;
+
+  return (
+    <div className='mx-auto w-full max-w-[470px] px-4 py-6'>
+      <h1 className='mb-4 text-xl font-bold text-gray-900'>Search</h1>
+
+      {/* Search input */}
+      <div className='relative mb-4'>
+        <SearchIcon size={20} className='absolute left-3 top-1/2 -translate-y-1/2 text-gray-400' />
+        <Input
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          placeholder='Search'
+          autoFocus
+          className='rounded-lg border-gray-200 pl-10 pr-10 focus-visible:ring-transparent'
+        />
+        {query ? (
+          <button
+            onClick={() => setQuery('')}
+            aria-label='Clear search'
+            className='absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-400 hover:text-gray-500'
+          >
+            <X size={18} />
+          </button>
+        ) : null}
+      </div>
+
+      {showResults ? (
+        <div className='rounded-lg border border-gray-200 bg-white p-2'>
+          {searching && results === null ? (
+            <>
+              <RowSkeleton />
+              <RowSkeleton />
+              <RowSkeleton />
+            </>
+          ) : results && results.length > 0 ? (
+            <>
+              {searching ? (
+                <div className='flex justify-center py-1'>
+                  <Loader2 size={16} className='animate-spin text-gray-400' />
+                </div>
+              ) : null}
+              {results.map(u => (
+                <UserRow key={u._id} user={u} onNavigate={() => addRecent(u)} />
+              ))}
+            </>
+          ) : results ? (
+            <p className='px-3 py-8 text-center text-sm text-gray-500'>
+              No results found for "{query.trim()}"
+            </p>
+          ) : null}
+        </div>
+      ) : (
+        <>
+          {/* Recent searches */}
+          <div className='mb-6'>
+            <div className='mb-1 flex items-center justify-between px-1'>
+              <h2 className='text-base font-semibold text-gray-900'>Recent</h2>
+              {recent.length > 0 ? (
+                <button
+                  onClick={clearRecent}
+                  className='cursor-pointer text-sm font-semibold text-blue-500 hover:text-blue-700'
+                >
+                  Clear all
+                </button>
+              ) : null}
+            </div>
+            {recent.length === 0 ? (
+              <p className='px-1 py-6 text-center text-sm text-gray-500'>No recent searches.</p>
+            ) : (
+              recent.map(u => (
+                <UserRow
+                  key={u._id}
+                  user={u}
+                  onNavigate={() => addRecent(u)}
+                  action={
+                    <button
+                      onClick={() => removeRecent(u._id)}
+                      aria-label={`Remove ${u.username} from recent searches`}
+                      className='cursor-pointer p-1 text-gray-400 hover:text-gray-500'
+                    >
+                      <X size={18} />
+                    </button>
+                  }
+                />
+              ))
+            )}
+          </div>
+
+          <SuggestedUsers />
+        </>
+      )}
+    </div>
+  );
+};
+
+export default Search;

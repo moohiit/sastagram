@@ -1,210 +1,132 @@
-import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
-import { setSelectedUser } from '@/redux/authSlice';
-import Messages from './Messages';
-import { Button } from './ui/button';
-import { MessageCircleCode, MoreHorizontalIcon } from 'lucide-react';
-import { Input } from './ui/input';
-import { toast } from 'sonner';
+import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
-import { setMessages } from '@/redux/chatSlice';
-import { Link, useParams } from 'react-router-dom';
+import { toast } from 'sonner';
+import { MessageCircle } from 'lucide-react';
+import { Button } from './ui/button';
+import { setSelectedUser } from '@/redux/authSlice';
+import { setConversations } from '@/redux/chatSlice';
 import useGetUserProfile from '@/hooks/useGetUserProfile';
-import { Dialog, DialogContent, DialogTitle } from './ui/dialog';
-import { DialogTrigger } from '@radix-ui/react-dialog';
+import useGetRTM from '@/hooks/useGetRTM';
+import ConversationList from './chat/ConversationList';
+import ChatThread from './chat/ChatThread';
+import NewChatDialog from './chat/NewChatDialog';
 
-const SuggestedUserItem = React.memo(({ suggestedUser, isOnline, unreadCount, onClick }) => (
-  <div onClick={onClick} className='flex gap-3 items-center p-3 hover:bg-gray-100 cursor-pointer'>
-    <Avatar className='w-12 h-12'>
-      <AvatarImage src={suggestedUser?.profilePicture} />
-      <AvatarFallback>MP</AvatarFallback>
-    </Avatar>
-    <div className='flex flex-col flex-1'>
-      <span className='font-medium text-sm'>{suggestedUser?.username}</span>
-      <span className={`text-xs font-bold ${isOnline ? 'text-green-600' : 'text-red-600'}`}>
-        {isOnline ? 'Online' : 'Offline'}
-      </span>
-    </div>
-    {unreadCount > 0 && (
-      <span className='bg-red-600 text-white text-xs font-bold rounded-full min-w-5 h-5 px-1 flex items-center justify-center'>
-        {unreadCount}
-      </span>
-    )}
-  </div>
-));
-
+/**
+ * Direct messages. Two-pane on md+ (conversation list | thread); below md a
+ * single pane that slides between list and thread. Serves /messages, /chat
+ * and the /chat/:id deep link.
+ */
 function Chat() {
   const params = useParams();
+  const navigate = useNavigate();
   const dispatch = useDispatch();
-  const { user, followings, selectedUser, userProfile } = useSelector(store => store.auth);
-  const { onlineUsers, messages } = useSelector(store => store.chat);
-  const { socket } = useSelector(store => store.socketio);
+  const { selectedUser, userProfile } = useSelector((store) => store.auth);
+  const { conversations } = useSelector((store) => store.chat);
+  const [newChatOpen, setNewChatOpen] = useState(false);
 
-  const [message, setMessage] = useState('');
-  const [open, setOpen] = useState(false);
-  const [unread, setUnread] = useState({}); // { [senderUserId]: count }
-  const inputRef = useRef(null);  // Ref for the input field
-  const selectedUserIdRef = useRef(null); // Avoid stale closures in socket handlers
-  selectedUserIdRef.current = selectedUser?._id || null;
+  // Live socket subscriptions for the whole page (thread + list updates).
+  useGetRTM();
 
-  // Initial unread counts per sender
+  // Conversation list (sorted by recency, includes unread counts).
   useEffect(() => {
     let cancelled = false;
-    const fetchUnread = async () => {
+    const fetchConversations = async () => {
       try {
-        const response = await axios.get('/api/v1/message/unread', { withCredentials: true });
+        const response = await axios.get('/api/v1/message/conversations', {
+          withCredentials: true,
+        });
         if (!cancelled && response.data.success) {
-          setUnread(response.data.unread || {});
+          dispatch(setConversations(response.data.conversations));
         }
       } catch (error) {
-        console.log(error);
-      }
-    };
-    fetchUnread();
-    return () => { cancelled = true; };
-  }, []);
-
-  // Live badge updates: bump the sender's count unless their thread is open.
-  // "messagesRead" (the other user read our messages) needs no UI here yet.
-  useEffect(() => {
-    if (!socket) return;
-    const onNewMessage = (newMessage) => {
-      const senderId = newMessage?.senderId;
-      if (!senderId || senderId === selectedUserIdRef.current) return;
-      setUnread(prev => ({ ...prev, [senderId]: (prev[senderId] || 0) + 1 }));
-    };
-    const onMessagesRead = () => { /* read receipts not surfaced in UI yet */ };
-    socket.on('newMessage', onNewMessage);
-    socket.on('messagesRead', onMessagesRead);
-    return () => {
-      socket.off('newMessage', onNewMessage);
-      socket.off('messagesRead', onMessagesRead);
-    };
-  }, [socket]);
-
-  // Opening a thread clears that user's badge
-  useEffect(() => {
-    const id = selectedUser?._id;
-    if (!id) return;
-    setUnread(prev => {
-      if (!prev[id]) return prev;
-      const next = { ...prev };
-      delete next[id];
-      return next;
-    });
-  }, [selectedUser?._id]);
-
-  const userId = params?.id;
-  // Hooks must not be called conditionally — the hook itself no-ops without an id
-  useGetUserProfile(userId);
-
-  useEffect(() => {
-    if (userId) {
-      dispatch(setSelectedUser(userProfile));
-    }
-  }, [dispatch, userId, userProfile]);
-
-  const sendMessageHandler = useCallback(async (recieverId) => {
-    try {
-      const response = await axios.post(`/api/v1/message/send/${recieverId}`, { message }, {
-        headers: { 'Content-Type': 'application/json' },
-        withCredentials: true,
-      });
-      if (response.data.success) {
-        const newMessages = messages ? [...messages, response.data.newMessage] : [response.data.newMessage];
-        dispatch(setMessages(newMessages));
-        setMessage('');
-        // Refocus the input to keep the keyboard open on mobile
-        if (inputRef.current) {
-          inputRef.current.focus();
+        if (!cancelled) {
+          toast.error(error.response?.data?.message || 'Could not load conversations');
         }
       }
-    } catch (error) {
-      console.error(error);
-      toast.error(error.response?.data?.message || 'Error sending message');
-    }
-  }, [dispatch, message, messages]);
+    };
+    fetchConversations();
+    return () => { cancelled = true; };
+  }, [dispatch]);
 
+  // Deep link /chat/:id — resolve the counterpart locally when possible,
+  // otherwise fall back to a profile fetch (useGetUserProfile no-ops on null).
+  const userId = params?.id || null;
+  const convoUser = useMemo(
+    () => conversations.find((c) => c._id === userId)?.user || null,
+    [conversations, userId]
+  );
+  const resolvedLocally = !userId || selectedUser?._id === userId || !!convoUser;
+  useGetUserProfile(resolvedLocally ? null : userId);
+
+  useEffect(() => {
+    if (!userId) {
+      dispatch(setSelectedUser(null));
+      return;
+    }
+    if (selectedUser?._id === userId) return;
+    if (convoUser) {
+      dispatch(setSelectedUser(convoUser));
+    } else if (userProfile?._id === userId) {
+      dispatch(setSelectedUser(userProfile));
+    }
+  }, [userId, selectedUser?._id, convoUser, userProfile, dispatch]);
+
+  // Leaving the page closes the thread.
   useEffect(() => {
     return () => dispatch(setSelectedUser(null));
   }, [dispatch]);
 
-  const handleUserSelect = useCallback((usr) => {
-    dispatch(setSelectedUser(usr));
-    setOpen(false);
-  }, [dispatch]);
+  const handleSelect = useCallback((u) => {
+    if (!u?._id) return;
+    dispatch(setSelectedUser(u));
+    navigate(`/chat/${u._id}`);
+  }, [dispatch, navigate]);
 
-  const memoizedFollowings = useMemo(() => {
-    return followings?.map((followingUser) => ({
-      ...followingUser,
-      isOnline: onlineUsers?.includes(followingUser?._id),
-    }));
-  }, [followings, onlineUsers]);
+  const handleBack = useCallback(() => {
+    navigate('/chat');
+  }, [navigate]);
 
-  // Function to handle Enter key press
-  const handleKeyDown = (e) => {
-    if (e.key === 'Enter' && message.trim()) {
-      e.preventDefault();  // Prevent default behavior on Enter key press
-      sendMessageHandler(selectedUser._id);
-    }
-  };
+  const threadOpen = !!selectedUser;
 
   return (
-    <div className='flex flex-col h-screen'>
-      <div className='w-full bg-blue-300 flex px-4 justify-between items-center'>
-        <span onClick={() => setOpen(true)} className='font-bold text-gray-500 p-2 cursor-pointer'>
-          Friends List
-        </span>
-        <Dialog open={open}>
-          <DialogTrigger onClick={() => setOpen(true)}>
-            <MoreHorizontalIcon />
-          </DialogTrigger>
-          <DialogContent onInteractOutside={() => setOpen(false)}>
-            <DialogTitle className='font-bold px-3 text-xl text-gray-400'>Friends</DialogTitle>
-            <section className='w-full'>
-              <hr className='mb-4 border-gray-300' />
-              <div className='overflow-y-auto max-h-[400px]'>
-                {memoizedFollowings?.map((followingUser) => (
-                  <SuggestedUserItem
-                    key={followingUser?._id}
-                    suggestedUser={followingUser}
-                    isOnline={followingUser.isOnline}
-                    unreadCount={unread[followingUser?._id] || 0}
-                    onClick={() => handleUserSelect(followingUser)}
-                  />
-                ))}
-              </div>
-            </section>
-          </DialogContent>
-        </Dialog>
-      </div>
-      {selectedUser ? (
-        <section className='flex-1 border-l border-l-gray-300 flex flex-col h-full'>
-          <Messages selectedUser={selectedUser} />
-          <div className='flex items-center p-2 border-t border-t-gray-300'>
-            <Input
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              onKeyDown={handleKeyDown}  // Attach keydown event to input
-              ref={inputRef}  // Attach the ref to the input
-              type='text'
-              className='flex-1 mr-2 focus-visible:ring-transparent'
-              placeholder='Message...'
+    <div className='flex h-[calc(100dvh-7.5rem)] md:h-[100dvh]'>
+      {/* Conversation list — full-screen below md, fixed column on md+ */}
+      <aside
+        className={`${threadOpen ? 'hidden md:flex' : 'flex'} w-full md:w-[340px] lg:w-[380px] shrink-0 flex-col border-r border-gray-200`}
+      >
+        <ConversationList onSelect={handleSelect} selectedUserId={selectedUser?._id} />
+      </aside>
+
+      {/* Thread pane — full-screen below md when a thread is open */}
+      <section className={`${threadOpen ? 'flex' : 'hidden md:flex'} flex-1 min-w-0 flex-col`}>
+        {threadOpen ? (
+          <ChatThread selectedUser={selectedUser} onBack={handleBack} />
+        ) : (
+          <div className='flex flex-1 flex-col items-center justify-center px-4'>
+            <div className='flex items-center justify-center h-24 w-24 rounded-full border-2 border-gray-900'>
+              <MessageCircle size={44} strokeWidth={1.5} />
+            </div>
+            <h2 className='text-xl font-bold text-gray-900 mt-4'>Your messages</h2>
+            <p className='text-sm text-gray-500 mt-1'>Send a message to start a chat.</p>
+            <Button
+              onClick={() => setNewChatOpen(true)}
+              className='bg-blue-500 hover:bg-blue-600 h-8 mt-4'
+            >
+              Send message
+            </Button>
+            <NewChatDialog
+              open={newChatOpen}
+              onOpenChange={setNewChatOpen}
+              onSelect={(u) => {
+                setNewChatOpen(false);
+                handleSelect(u);
+              }}
             />
-            <Button onClick={(e) => {
-              e.preventDefault();  // Prevent default button behavior
-              sendMessageHandler(selectedUser._id);
-            }}>Send</Button>
           </div>
-        </section>
-      ) : (
-        <div className='flex flex-col border-l border-l-gray-300 w-full items-center justify-center'>
-          <MessageCircleCode className='w-24 h-24 my-4' />
-          <h1 className='text-xl'>Your Messages</h1>
-          <span className='text-gray-500'>Send a message to start a chat</span>
-        </div>
-      )}
+        )}
+      </section>
     </div>
   );
 }
