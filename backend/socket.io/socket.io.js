@@ -43,6 +43,16 @@ io.on("connection", (socket) => {
   userSocketMap[userId] = socket.id;
   io.emit("getOnlineUsers", Object.keys(userSocketMap));
 
+  // Typing indicators: relay to the target user only, sender identity from JWT
+  socket.on("typing", ({ to }) => {
+    const target = userSocketMap[to];
+    if (target) io.to(target).emit("typing", { from: userId });
+  });
+  socket.on("stopTyping", ({ to }) => {
+    const target = userSocketMap[to];
+    if (target) io.to(target).emit("stopTyping", { from: userId });
+  });
+
   socket.on("disconnect", () => {
     // Only clear the mapping if this socket is still the active one for the user
     if (userSocketMap[userId] === socket.id) {

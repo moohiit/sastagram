@@ -6,6 +6,7 @@ import {
   getFollowing,
   getProfile,
   getMe,
+  searchUsers,
   getSuggestedUsers,
   login, logout, register,
   searchProfile,
@@ -20,6 +21,7 @@ router.post('/register', register);
 router.post('/login', login);
 router.get('/logout', logout);
 router.get('/me', isAuthenticated, getMe);
+router.get('/search', isAuthenticated, searchUsers);
 router.get('/:id/profile', isAuthenticated, getProfile);
 router.post('/profile/edit', isAuthenticated, upload.single('profilePicture'), editProfile);
 router.get('/suggested',isAuthenticated, getSuggestedUsers)

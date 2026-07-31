@@ -117,3 +117,54 @@ export const getUnreadCounts = async (req, res) => {
     return res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
+
+// GET /api/v1/message/conversations — DM list: one row per counterpart with
+// last message, unread count, and the counterpart's public profile fields.
+export const getConversations = async (req, res) => {
+  try {
+    const myId = new mongoose.Types.ObjectId(req.id);
+    const rows = await Message.aggregate([
+      { $match: { $or: [{ senderId: myId }, { recieverId: myId }] } },
+      { $sort: { _id: -1 } },
+      {
+        $addFields: {
+          counterpart: {
+            $cond: [{ $eq: ["$senderId", myId] }, "$recieverId", "$senderId"],
+          },
+        },
+      },
+      {
+        $group: {
+          _id: "$counterpart",
+          lastMessage: { $first: "$message" },
+          lastMessageAt: { $first: "$createdAt" },
+          lastSenderId: { $first: "$senderId" },
+          unread: {
+            $sum: {
+              $cond: [
+                { $and: [{ $eq: ["$recieverId", myId] }, { $eq: ["$read", false] }] },
+                1,
+                0,
+              ],
+            },
+          },
+        },
+      },
+      { $sort: { lastMessageAt: -1 } },
+      {
+        $lookup: {
+          from: "users",
+          localField: "_id",
+          foreignField: "_id",
+          pipeline: [{ $project: { username: 1, profilePicture: 1 } }],
+          as: "user",
+        },
+      },
+      { $unwind: "$user" },
+    ]);
+    return res.status(200).json({ success: true, conversations: rows });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};

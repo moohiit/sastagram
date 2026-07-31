@@ -443,3 +443,20 @@ export const getMe = async (req, res) => {
     return res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
+
+// GET /api/v1/user/search?q= — case-insensitive username prefix/substring search
+export const searchUsers = async (req, res) => {
+  try {
+    const q = (req.query.q || "").toString().trim();
+    if (!q) return res.status(200).json({ success: true, users: [] });
+    // Escape regex metacharacters from user input
+    const safe = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const users = await User.find({ username: { $regex: safe, $options: "i" } })
+      .select("username profilePicture bio")
+      .limit(10);
+    return res.status(200).json({ success: true, users });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
