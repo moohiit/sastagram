@@ -1,22 +1,22 @@
-import RightSidebar from "./RightSidebar"
-import useGetAllPost from "@/hooks/useGetAllPost"
-import Posts from "./Posts"
-import useGetSuggestedUsers from "@/hooks/useGetSuggestedUsers";
-import useGetFollowings from "@/hooks/useGetFollowings";
+import useGetAllPost from '@/hooks/useGetAllPost';
+import useGetSuggestedUsers from '@/hooks/useGetSuggestedUsers';
+import useGetFollowings from '@/hooks/useGetFollowings';
+import Posts from './Posts';
+import RightSidebar from './RightSidebar';
 
 export default function Home() {
   useGetAllPost();
   useGetSuggestedUsers();
-  // Fetch followings data on app load using the custom hook
   useGetFollowings();
+
   return (
-    <div className="flex">
-      <div className="flex-grow  min-w-max">
+    <div className='flex justify-center gap-16 px-4'>
+      <div className='w-full max-w-[470px]'>
         <Posts />
       </div>
-      <div className="flex-1 min-w-max ">
+      <aside className='hidden min-[1160px]:block w-[320px] shrink-0'>
         <RightSidebar />
-      </div>
+      </aside>
     </div>
-  )
+  );
 }

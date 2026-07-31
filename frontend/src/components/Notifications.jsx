@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react'
+import React, { useEffect } from 'react';
 import axios from 'axios';
 import { useDispatch, useSelector } from 'react-redux';
 import { markAllRead } from '@/redux/rtnSlice';
@@ -17,21 +17,19 @@ export default function Notifications() {
   }, []);
 
   return (
-    <div className='flex flex-col w-[95%] bg-slate-50 h-screen border shadow-md '>
-      <div className='font-bold text-3xl text-gray-600 m-8 '>Notifications</div>
-      <div className='m-8 bg-slate-200 flex flex-col gap-2 mt-3 rounded-lg p-5 border border-gray-300 max-w-screen-sm'>
-        {
-          notifications.length === 0 ? (
-            <p>No new notification</p>
-          ) : (
-            notifications.map((notification) => (
-              <div key={notification._id} className='rounded-lg p-2 bg-slate-100'>
-                <NotificationItem notification={notification} />
-              </div>
-            ))
-          )
-        }
-      </div>
+    <div className='w-full max-w-[470px] mx-auto px-4 py-6'>
+      <h1 className='text-xl font-bold mb-4'>Notifications</h1>
+      {notifications.length === 0 ? (
+        <p className='text-sm text-gray-500'>No new notification</p>
+      ) : (
+        <div className='flex flex-col divide-y divide-gray-200 rounded-lg border border-gray-200 bg-white'>
+          {notifications.map((notification) => (
+            <div key={notification._id} className='p-3'>
+              <NotificationItem notification={notification} />
+            </div>
+          ))}
+        </div>
+      )}
     </div>
-  )
+  );
 }
