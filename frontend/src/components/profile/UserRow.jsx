@@ -14,7 +14,7 @@ const UserRow = ({ user: rowUser, action, onNavigate, avatarClass = 'h-11 w-11' 
   const isSelf = user?._id === rowUser._id;
 
   return (
-    <div className='flex items-center justify-between gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors'>
+    <div className='flex items-center justify-between gap-3 px-3 py-2 rounded-lg hover:bg-zinc-900 transition-colors'>
       <Link
         to={`/profile/${rowUser._id}`}
         onClick={onNavigate}
@@ -25,16 +25,16 @@ const UserRow = ({ user: rowUser, action, onNavigate, avatarClass = 'h-11 w-11' 
           <AvatarFallback>{rowUser.username?.[0]?.toUpperCase() || 'U'}</AvatarFallback>
         </Avatar>
         <div className='min-w-0'>
-          <p className='text-sm font-semibold text-gray-900 truncate'>{rowUser.username}</p>
+          <p className='text-sm font-semibold text-gray-100 truncate'>{rowUser.username}</p>
           {rowUser.bio ? (
-            <p className='text-sm text-gray-500 truncate'>{rowUser.bio}</p>
+            <p className='text-sm text-zinc-400 truncate'>{rowUser.bio}</p>
           ) : null}
         </div>
       </Link>
       {action !== undefined ? (
         action
       ) : isSelf ? (
-        <span className='text-xs font-semibold text-gray-400 px-2'>You</span>
+        <span className='text-xs font-semibold text-zinc-500 px-2'>You</span>
       ) : (
         <FollowButton userId={rowUser._id} />
       )}

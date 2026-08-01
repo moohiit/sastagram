@@ -103,10 +103,10 @@ function SharePostDialog({ open, onOpenChange, post, onCopyLink }) {
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent aria-describedby={undefined} className='max-w-sm p-0 gap-0'>
-        <DialogTitle className='text-base font-semibold text-gray-900 text-center py-3 border-b border-gray-200'>
+        <DialogTitle className='text-base font-semibold text-gray-100 text-center py-3 border-b border-zinc-800'>
           Share
         </DialogTitle>
-        <div className='p-3 border-b border-gray-200'>
+        <div className='p-3 border-b border-zinc-800'>
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -116,7 +116,7 @@ function SharePostDialog({ open, onOpenChange, post, onCopyLink }) {
         </div>
         <div className='overflow-y-auto max-h-[280px] py-1'>
           {filtered.length === 0 ? (
-            <p className='text-sm text-gray-500 text-center py-6'>No people found.</p>
+            <p className='text-sm text-zinc-400 text-center py-6'>No people found.</p>
           ) : (
             filtered.map((u) => {
               const isSelected = selected.some((s) => s._id === u._id)
@@ -124,7 +124,7 @@ function SharePostDialog({ open, onOpenChange, post, onCopyLink }) {
                 <div
                   key={u?._id}
                   onClick={() => toggleRecipient(u)}
-                  className='flex items-center gap-3 px-4 py-2 cursor-pointer hover:bg-gray-100 transition-colors'
+                  className='flex items-center gap-3 px-4 py-2 cursor-pointer hover:bg-zinc-900 transition-colors'
                 >
                   <Avatar className='h-11 w-11'>
                     <AvatarImage src={u?.profilePicture} />
@@ -132,14 +132,14 @@ function SharePostDialog({ open, onOpenChange, post, onCopyLink }) {
                       {u?.username?.slice(0, 2)?.toUpperCase() || 'US'}
                     </AvatarFallback>
                   </Avatar>
-                  <span className='flex-1 min-w-0 text-sm font-semibold text-gray-900 truncate'>
+                  <span className='flex-1 min-w-0 text-sm font-semibold text-gray-100 truncate'>
                     {u?.username}
                   </span>
                   <span
                     className={`flex items-center justify-center h-6 w-6 rounded-full border transition-colors ${
                       isSelected
                         ? 'bg-blue-500 border-blue-500 text-white'
-                        : 'border-gray-200 text-transparent'
+                        : 'border-zinc-800 text-transparent'
                     }`}
                   >
                     <Check size={14} strokeWidth={3} />
@@ -159,7 +159,7 @@ function SharePostDialog({ open, onOpenChange, post, onCopyLink }) {
             />
           </div>
         )}
-        <div className='p-3 border-t border-gray-200'>
+        <div className='p-3 border-t border-zinc-800'>
           <Button
             onClick={sendHandler}
             disabled={selected.length === 0 || sending}
@@ -173,10 +173,10 @@ function SharePostDialog({ open, onOpenChange, post, onCopyLink }) {
             onCopyLink?.()
             handleOpenChange(false)
           }}
-          className='flex items-center gap-3 px-4 py-3 border-t border-gray-200 cursor-pointer rounded-b-lg hover:bg-gray-100 transition-colors'
+          className='flex items-center gap-3 px-4 py-3 border-t border-zinc-800 cursor-pointer rounded-b-lg hover:bg-zinc-900 transition-colors'
         >
-          <Link2 size={20} className='text-gray-900' />
-          <span className='text-sm text-gray-900'>Copy link</span>
+          <Link2 size={20} className='text-gray-100' />
+          <span className='text-sm text-gray-100'>Copy link</span>
         </div>
       </DialogContent>
     </Dialog>

@@ -40,7 +40,7 @@ const Profile = () => {
 
   const tabClass = isActive =>
     `-mt-px flex cursor-pointer items-center gap-1.5 border-t py-3 text-xs font-semibold uppercase tracking-widest transition-colors ${
-      isActive ? 'border-gray-900 text-gray-900' : 'border-transparent text-gray-400 hover:text-gray-500'
+      isActive ? 'border-gray-100 text-gray-100' : 'border-transparent text-zinc-500 hover:text-zinc-400'
     }`;
 
   return (
@@ -56,7 +56,7 @@ const Profile = () => {
 
         <section className='flex min-w-0 flex-1 flex-col gap-4'>
           <div className='flex flex-wrap items-center gap-x-4 gap-y-2'>
-            <h1 className='truncate text-xl text-gray-900'>{userProfile.username}</h1>
+            <h1 className='truncate text-xl text-gray-100'>{userProfile.username}</h1>
             {isOwnProfile ? (
               <Link to='/profile/edit'>
                 <Button variant='secondary' className='h-8 font-semibold'>
@@ -81,10 +81,10 @@ const Profile = () => {
           </div>
 
           {/* Stats — inline on desktop */}
-          <div className='hidden items-center gap-10 text-sm text-gray-900 sm:flex'>
+          <div className='hidden items-center gap-10 text-sm text-gray-100 sm:flex'>
             {stats.map(s =>
               s.to ? (
-                <Link key={s.label} to={s.to} className='cursor-pointer hover:text-gray-500'>
+                <Link key={s.label} to={s.to} className='cursor-pointer hover:text-zinc-400'>
                   <span className='font-semibold'>{s.count}</span> {s.label}
                 </Link>
               ) : (
@@ -97,7 +97,7 @@ const Profile = () => {
 
           {/* Bio — desktop */}
           {userProfile.bio ? (
-            <p className='hidden whitespace-pre-line text-sm text-gray-900 sm:block'>
+            <p className='hidden whitespace-pre-line text-sm text-gray-100 sm:block'>
               {userProfile.bio}
             </p>
           ) : null}
@@ -106,18 +106,18 @@ const Profile = () => {
 
       {/* Bio — mobile */}
       {userProfile.bio ? (
-        <p className='whitespace-pre-line pb-4 text-sm text-gray-900 sm:hidden'>
+        <p className='whitespace-pre-line pb-4 text-sm text-gray-100 sm:hidden'>
           {userProfile.bio}
         </p>
       ) : null}
 
       {/* Stats — bordered row on mobile */}
-      <div className='grid grid-cols-3 border-y border-gray-200 py-3 text-center sm:hidden'>
+      <div className='grid grid-cols-3 border-y border-zinc-800 py-3 text-center sm:hidden'>
         {stats.map(s => {
           const inner = (
             <>
-              <span className='text-sm font-semibold text-gray-900'>{s.count}</span>
-              <span className='text-sm text-gray-500'>{s.label}</span>
+              <span className='text-sm font-semibold text-gray-100'>{s.count}</span>
+              <span className='text-sm text-zinc-400'>{s.label}</span>
             </>
           );
           return s.to ? (
@@ -133,7 +133,7 @@ const Profile = () => {
       </div>
 
       {/* Tabs */}
-      <div className='flex items-center justify-center gap-12 border-t border-gray-200 max-sm:border-t-0'>
+      <div className='flex items-center justify-center gap-12 border-t border-zinc-800 max-sm:border-t-0'>
         <button onClick={() => setActiveTab('posts')} className={tabClass(activeTab === 'posts')}>
           <Grid3x3 size={14} /> Posts
         </button>

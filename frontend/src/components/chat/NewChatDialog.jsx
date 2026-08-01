@@ -28,10 +28,10 @@ const NewChatDialog = ({ open, onOpenChange, onSelect }) => {
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent aria-describedby={undefined} className='max-w-sm p-0 gap-0'>
-        <DialogTitle className='text-base font-semibold text-gray-900 text-center py-3 border-b border-gray-200'>
+        <DialogTitle className='text-base font-semibold text-gray-100 text-center py-3 border-b border-zinc-800'>
           New message
         </DialogTitle>
-        <div className='p-3 border-b border-gray-200'>
+        <div className='p-3 border-b border-zinc-800'>
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -41,7 +41,7 @@ const NewChatDialog = ({ open, onOpenChange, onSelect }) => {
         </div>
         <div className='overflow-y-auto max-h-[320px] py-1'>
           {filtered.length === 0 ? (
-            <p className='text-sm text-gray-500 text-center py-6'>No people found.</p>
+            <p className='text-sm text-zinc-400 text-center py-6'>No people found.</p>
           ) : (
             filtered.map((u) => {
               const isOnline = onlineUsers?.includes(u?._id);
@@ -52,7 +52,7 @@ const NewChatDialog = ({ open, onOpenChange, onSelect }) => {
                     setQuery('');
                     onSelect(u);
                   }}
-                  className='flex items-center gap-3 px-4 py-2 cursor-pointer hover:bg-gray-100 transition-colors'
+                  className='flex items-center gap-3 px-4 py-2 cursor-pointer hover:bg-zinc-900 transition-colors'
                 >
                   <div className='relative'>
                     <Avatar className='h-11 w-11'>
@@ -62,12 +62,12 @@ const NewChatDialog = ({ open, onOpenChange, onSelect }) => {
                       </AvatarFallback>
                     </Avatar>
                     {isOnline && (
-                      <span className='absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 ring-2 ring-white' />
+                      <span className='absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 ring-2 ring-black' />
                     )}
                   </div>
                   <div className='flex flex-col'>
-                    <span className='text-sm font-semibold text-gray-900'>{u?.username}</span>
-                    <span className='text-xs text-gray-500'>{isOnline ? 'Active now' : 'Offline'}</span>
+                    <span className='text-sm font-semibold text-gray-100'>{u?.username}</span>
+                    <span className='text-xs text-zinc-400'>{isOnline ? 'Active now' : 'Offline'}</span>
                   </div>
                 </div>
               );

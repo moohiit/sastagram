@@ -77,9 +77,9 @@ function Posts() {
   return (
     <>
       {hasFetched && posts.length === 0 && (
-        <div className='bg-white border border-gray-200 rounded-lg p-8 text-center'>
-          <p className='text-base font-semibold text-gray-900'>No posts yet</p>
-          <p className='text-sm text-gray-500 mt-1'>Follow people to see their photos here.</p>
+        <div className='bg-black border border-zinc-800 rounded-lg p-8 text-center'>
+          <p className='text-base font-semibold text-gray-100'>No posts yet</p>
+          <p className='text-sm text-zinc-400 mt-1'>Follow people to see their photos here.</p>
         </div>
       )}
 
@@ -88,17 +88,17 @@ function Posts() {
       ))}
 
       <div ref={sentinelRef} className='flex flex-col items-center justify-center py-4 gap-2'>
-        {loadingMore && <Loader2 className='h-6 w-6 animate-spin text-gray-500' />}
+        {loadingMore && <Loader2 className='h-6 w-6 animate-spin text-zinc-400' />}
         {loadError && !loadingMore && (
           <>
-            <span className='text-sm text-gray-500'>Couldn&apos;t load more posts.</span>
+            <span className='text-sm text-zinc-400'>Couldn&apos;t load more posts.</span>
             <Button onClick={loadNextPage} className='bg-blue-500 hover:bg-blue-600 h-8'>
               Retry
             </Button>
           </>
         )}
         {!nextCursor && posts.length > 0 && (
-          <span className='text-xs text-gray-400'>You&apos;re all caught up</span>
+          <span className='text-xs text-zinc-500'>You&apos;re all caught up</span>
         )}
       </div>
     </>

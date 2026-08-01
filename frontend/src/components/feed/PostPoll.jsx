@@ -67,8 +67,8 @@ function PostPoll({ post }) {
 
   return (
     <div className='px-3 pt-2'>
-      <div className='border border-gray-200 rounded-lg p-3'>
-        <p className='text-sm font-semibold text-gray-900 mb-2'>{poll.question}</p>
+      <div className='border border-zinc-800 rounded-lg p-3'>
+        <p className='text-sm font-semibold text-gray-100 mb-2'>{poll.question}</p>
         <div className='space-y-1.5'>
           {poll.options.map((option, index) =>
             showResults ? (
@@ -76,11 +76,11 @@ function PostPoll({ post }) {
                 key={index}
                 onClick={() => voteHandler(index)}
                 disabled={voting}
-                className='relative w-full overflow-hidden rounded-md border border-gray-200 px-3 py-1.5 text-left cursor-pointer disabled:opacity-70'
+                className='relative w-full overflow-hidden rounded-md border border-zinc-800 px-3 py-1.5 text-left cursor-pointer disabled:opacity-70'
               >
                 <span
                   className={`absolute inset-y-0 left-0 transition-all duration-500 ${
-                    index === myOption ? 'bg-blue-500/20' : 'bg-gray-200'
+                    index === myOption ? 'bg-blue-500/20' : 'bg-zinc-800'
                   }`}
                   style={{
                     width: `${totalVotes ? Math.round((counts[index] / totalVotes) * 100) : 0}%`,
@@ -89,12 +89,12 @@ function PostPoll({ post }) {
                 <span className='relative flex items-center justify-between gap-2 text-sm'>
                   <span
                     className={
-                      index === myOption ? 'font-semibold text-blue-500' : 'text-gray-900'
+                      index === myOption ? 'font-semibold text-blue-400' : 'text-gray-100'
                     }
                   >
                     {option.text}
                   </span>
-                  <span className='text-xs text-gray-500 shrink-0'>
+                  <span className='text-xs text-zinc-400 shrink-0'>
                     {totalVotes ? Math.round((counts[index] / totalVotes) * 100) : 0}% ·{' '}
                     {counts[index] ?? 0}
                   </span>
@@ -105,14 +105,14 @@ function PostPoll({ post }) {
                 key={index}
                 onClick={() => voteHandler(index)}
                 disabled={voting}
-                className='w-full rounded-md border border-gray-200 px-3 py-1.5 text-left text-sm text-gray-900 cursor-pointer hover:bg-gray-100 transition-colors disabled:opacity-70'
+                className='w-full rounded-md border border-zinc-800 px-3 py-1.5 text-left text-sm text-gray-100 cursor-pointer hover:bg-zinc-900 transition-colors disabled:opacity-70'
               >
                 {option.text}
               </button>
             )
           )}
         </div>
-        <p className='text-xs text-gray-400 mt-2'>
+        <p className='text-xs text-zinc-500 mt-2'>
           {totalVotes.toLocaleString()} {totalVotes === 1 ? 'vote' : 'votes'}
           {user && myOption !== null && ' · Tap to change'}
         </p>

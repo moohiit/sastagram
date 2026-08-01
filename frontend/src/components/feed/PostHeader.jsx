@@ -19,7 +19,7 @@ function PostHeader({
   const [menuOpen, setMenuOpen] = useState(false)
 
   const menuItem =
-    'w-full py-3 text-sm text-center cursor-pointer hover:bg-gray-100 transition-colors border-b border-gray-200 last:border-b-0'
+    'w-full py-3 text-sm text-center cursor-pointer hover:bg-zinc-900 transition-colors border-b border-zinc-800 last:border-b-0'
 
   return (
     <div className='flex items-center justify-between px-3 py-2.5'>
@@ -35,12 +35,12 @@ function PostHeader({
         <div className='flex items-center gap-1.5 min-w-0'>
           <Link
             to={`/profile/${post?.author?._id}`}
-            className='text-sm font-semibold text-gray-900 truncate hover:opacity-70'
+            className='text-sm font-semibold text-gray-100 truncate hover:opacity-70'
           >
             {post?.author?.username}
           </Link>
-          <span className='text-gray-400'>&middot;</span>
-          <span className='text-xs text-gray-400'>{timeAgo(post?.createdAt)}</span>
+          <span className='text-zinc-500'>&middot;</span>
+          <span className='text-xs text-zinc-500'>{timeAgo(post?.createdAt)}</span>
         </div>
       </div>
 
@@ -48,7 +48,7 @@ function PostHeader({
         <DialogTrigger asChild>
           <button
             aria-label='Post options'
-            className='cursor-pointer rounded-full p-1 hover:bg-gray-100 transition-colors text-gray-900'
+            className='cursor-pointer rounded-full p-1 hover:bg-zinc-900 transition-colors text-gray-100'
           >
             <MoreHorizontal size={20} />
           </button>
@@ -90,7 +90,7 @@ function PostHeader({
                 setMenuOpen(false)
                 onToggleFollow()
               }}
-              className={`${menuItem} ${isFollowing ? 'text-red-500 font-semibold' : 'text-blue-500 font-semibold'}`}
+              className={`${menuItem} ${isFollowing ? 'text-red-500 font-semibold' : 'text-blue-400 font-semibold'}`}
             >
               {isFollowing ? 'Unfollow' : 'Follow'}
             </button>

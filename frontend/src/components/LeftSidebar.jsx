@@ -13,7 +13,7 @@ import { clearNotifications, markAllRead } from '@/redux/rtnSlice';
 import NotificationItem from './NotificationItem';
 
 const itemClass =
-  'flex items-center gap-4 w-full rounded-lg p-3 my-0.5 cursor-pointer hover:bg-gray-100 transition-colors text-gray-900';
+  'flex items-center gap-4 w-full rounded-lg p-3 my-0.5 cursor-pointer hover:bg-zinc-900 transition-colors text-gray-100';
 
 // Desktop/tablet navigation: 244px sidebar >=1264px, 72px icon rail 768-1263px,
 // hidden below 768px (TopBar + BottomNav take over).
@@ -78,10 +78,10 @@ function LeftSidebar({ openCreate }) {
   const profileActive = isActive(`/profile/${user?._id}`);
 
   return (
-    <aside className='hidden md:flex fixed left-0 top-0 z-30 h-screen w-[72px] min-[1264px]:w-[244px] flex-col border-r border-gray-200 bg-white px-3 pt-6 pb-5'>
+    <aside className='hidden md:flex fixed left-0 top-0 z-30 h-screen w-[72px] min-[1264px]:w-[244px] flex-col border-r border-zinc-800 bg-black px-3 pt-6 pb-5'>
       <Link
         to='/'
-        className='flex items-center gap-2 px-3 py-3 mb-4 text-gray-900'
+        className='flex items-center gap-2 px-3 py-3 mb-4 text-gray-100'
         title='SastaGram'
       >
         <Instagram size={26} className='shrink-0' />
@@ -130,7 +130,7 @@ function LeftSidebar({ openCreate }) {
           <PopoverContent side='right' align='start' className='w-80 max-h-96 overflow-y-auto'>
             <h3 className='font-semibold text-base mb-2'>Notifications</h3>
             {notifications.length === 0 ? (
-              <p className='text-sm text-gray-500'>No new notification</p>
+              <p className='text-sm text-zinc-400'>No new notification</p>
             ) : (
               notifications.map((notification) => (
                 <NotificationItem key={notification._id} notification={notification} />
@@ -150,7 +150,7 @@ function LeftSidebar({ openCreate }) {
           aria-label='Profile'
           className={itemClass}
         >
-          <Avatar className={`h-8 w-8 shrink-0 ${profileActive ? 'ring-2 ring-gray-900' : ''}`}>
+          <Avatar className={`h-8 w-8 shrink-0 ${profileActive ? 'ring-2 ring-gray-100' : ''}`}>
             <AvatarImage src={user?.profilePicture} alt={user?.username} />
             <AvatarFallback>{user?.username?.[0]?.toUpperCase() || 'U'}</AvatarFallback>
           </Avatar>
@@ -172,7 +172,7 @@ function LeftSidebar({ openCreate }) {
             </Link>
             <Link
               to='/signup'
-              className='hidden min-[1264px]:block text-center text-sm font-semibold text-blue-500 hover:text-blue-700'
+              className='hidden min-[1264px]:block text-center text-sm font-semibold text-blue-400 hover:text-blue-300'
             >
               Sign up
             </Link>

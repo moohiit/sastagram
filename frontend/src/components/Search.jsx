@@ -22,10 +22,10 @@ const loadRecent = () => {
 
 const RowSkeleton = () => (
   <div className='flex items-center gap-3 px-3 py-2'>
-    <div className='h-11 w-11 animate-pulse rounded-full bg-gray-200' />
+    <div className='h-11 w-11 animate-pulse rounded-full bg-zinc-800' />
     <div className='flex flex-col gap-2'>
-      <div className='h-3 w-28 animate-pulse rounded bg-gray-200' />
-      <div className='h-3 w-40 animate-pulse rounded bg-gray-200' />
+      <div className='h-3 w-28 animate-pulse rounded bg-zinc-800' />
+      <div className='h-3 w-40 animate-pulse rounded bg-zinc-800' />
     </div>
   </div>
 );
@@ -33,7 +33,7 @@ const RowSkeleton = () => (
 const GridSkeleton = () => (
   <div className='grid grid-cols-3 gap-1'>
     {Array.from({ length: 6 }).map((_, i) => (
-      <div key={i} className='aspect-square animate-pulse rounded bg-gray-200' />
+      <div key={i} className='aspect-square animate-pulse rounded bg-zinc-800' />
     ))}
   </div>
 );
@@ -160,23 +160,23 @@ const Search = () => {
 
   return (
     <div className='mx-auto w-full max-w-[470px] px-4 py-6'>
-      <h1 className='mb-4 text-xl font-bold text-gray-900'>Search</h1>
+      <h1 className='mb-4 text-xl font-bold text-gray-100'>Search</h1>
 
       {/* Search input */}
       <div className='relative mb-4'>
-        <SearchIcon size={20} className='absolute left-3 top-1/2 -translate-y-1/2 text-gray-400' />
+        <SearchIcon size={20} className='absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500' />
         <Input
           value={query}
           onChange={e => setQuery(e.target.value)}
           placeholder='Search'
           autoFocus
-          className='rounded-lg border-gray-200 pl-10 pr-10 focus-visible:ring-transparent'
+          className='rounded-lg border-zinc-800 pl-10 pr-10 focus-visible:ring-transparent'
         />
         {query ? (
           <button
             onClick={() => setQuery('')}
             aria-label='Clear search'
-            className='absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-gray-400 hover:text-gray-500'
+            className='absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-zinc-500 hover:text-zinc-400'
           >
             <X size={18} />
           </button>
@@ -184,15 +184,15 @@ const Search = () => {
       </div>
 
       {/* Accounts | Posts tabs */}
-      <div className='mb-4 flex border-b border-gray-200'>
+      <div className='mb-4 flex border-b border-zinc-800'>
         {TABS.map(t => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
             className={`flex-1 cursor-pointer border-b-2 pb-2 text-sm font-semibold transition-colors ${
               tab === t.id
-                ? 'border-gray-900 text-gray-900'
-                : 'border-transparent text-gray-400 hover:text-gray-500'
+                ? 'border-gray-100 text-gray-100'
+                : 'border-transparent text-zinc-500 hover:text-zinc-400'
             }`}
           >
             {t.label}
@@ -202,7 +202,7 @@ const Search = () => {
 
       {tab === 'accounts' ? (
         showResults ? (
-          <div className='rounded-lg border border-gray-200 bg-white p-2'>
+          <div className='rounded-lg border border-zinc-800 bg-black p-2'>
             {searching && results === null ? (
               <>
                 <RowSkeleton />
@@ -213,7 +213,7 @@ const Search = () => {
               <>
                 {searching ? (
                   <div className='flex justify-center py-1'>
-                    <Loader2 size={16} className='animate-spin text-gray-400' />
+                    <Loader2 size={16} className='animate-spin text-zinc-500' />
                   </div>
                 ) : null}
                 {results.map(u => (
@@ -221,7 +221,7 @@ const Search = () => {
                 ))}
               </>
             ) : results ? (
-              <p className='px-3 py-8 text-center text-sm text-gray-500'>
+              <p className='px-3 py-8 text-center text-sm text-zinc-400'>
                 No results found for "{query.trim()}"
               </p>
             ) : null}
@@ -231,18 +231,18 @@ const Search = () => {
             {/* Recent searches */}
             <div className='mb-6'>
               <div className='mb-1 flex items-center justify-between px-1'>
-                <h2 className='text-base font-semibold text-gray-900'>Recent</h2>
+                <h2 className='text-base font-semibold text-gray-100'>Recent</h2>
                 {recent.length > 0 ? (
                   <button
                     onClick={clearRecent}
-                    className='cursor-pointer text-sm font-semibold text-blue-500 hover:text-blue-700'
+                    className='cursor-pointer text-sm font-semibold text-blue-400 hover:text-blue-300'
                   >
                     Clear all
                   </button>
                 ) : null}
               </div>
               {recent.length === 0 ? (
-                <p className='px-1 py-6 text-center text-sm text-gray-500'>No recent searches.</p>
+                <p className='px-1 py-6 text-center text-sm text-zinc-400'>No recent searches.</p>
               ) : (
                 recent.map(u => (
                   <UserRow
@@ -253,7 +253,7 @@ const Search = () => {
                       <button
                         onClick={() => removeRecent(u._id)}
                         aria-label={`Remove ${u.username} from recent searches`}
-                        className='cursor-pointer p-1 text-gray-400 hover:text-gray-500'
+                        className='cursor-pointer p-1 text-zinc-500 hover:text-zinc-400'
                       >
                         <X size={18} />
                       </button>
@@ -270,7 +270,7 @@ const Search = () => {
         /* Posts tab */
         <div>
           {!showResults ? (
-            <p className='px-1 py-8 text-center text-sm text-gray-500'>
+            <p className='px-1 py-8 text-center text-sm text-zinc-400'>
               Search posts by what's in them — try "sunset at the beach".
             </p>
           ) : postSearching && postResults === null ? (
@@ -279,17 +279,17 @@ const Search = () => {
             <>
               <div className='mb-2 flex items-center justify-between px-1'>
                 {postMode === 'semantic' ? (
-                  <span className='flex items-center gap-1 text-xs text-gray-400'>
+                  <span className='flex items-center gap-1 text-xs text-zinc-500'>
                     <Sparkles size={12} />
                     Semantic search
                   </span>
                 ) : (
-                  <span className='rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-400'>
+                  <span className='rounded-full bg-zinc-900 px-2 py-0.5 text-xs text-zinc-500'>
                     basic search
                   </span>
                 )}
                 {postSearching ? (
-                  <Loader2 size={14} className='animate-spin text-gray-400' />
+                  <Loader2 size={14} className='animate-spin text-zinc-500' />
                 ) : null}
               </div>
               <div className='grid grid-cols-3 gap-1'>
@@ -297,7 +297,7 @@ const Search = () => {
                   <button
                     key={post._id}
                     onClick={() => openPost(post)}
-                    className='group relative aspect-square cursor-pointer overflow-hidden bg-gray-100 focus:outline-none'
+                    className='group relative aspect-square cursor-pointer overflow-hidden bg-zinc-900 focus:outline-none'
                   >
                     <img
                       src={cdn(post.image, 500)}
@@ -310,7 +310,7 @@ const Search = () => {
               </div>
             </>
           ) : postResults ? (
-            <p className='px-3 py-8 text-center text-sm text-gray-500'>
+            <p className='px-3 py-8 text-center text-sm text-zinc-400'>
               No posts found for "{query.trim()}"
             </p>
           ) : null}

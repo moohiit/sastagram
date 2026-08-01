@@ -27,12 +27,12 @@ const ChatThread = ({ selectedUser, onBack }) => {
 
   return (
     <div className='flex flex-col h-full min-h-0'>
-      <header className='flex items-center gap-3 px-4 py-3 border-b border-gray-200 shrink-0'>
+      <header className='flex items-center gap-3 px-4 py-3 border-b border-zinc-800 shrink-0'>
         <button
           type='button'
           aria-label='Back'
           onClick={onBack}
-          className='md:hidden -ml-2 p-1 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors'
+          className='md:hidden -ml-2 p-1 rounded-lg cursor-pointer hover:bg-zinc-900 transition-colors'
         >
           <ChevronLeft size={24} />
         </button>
@@ -44,17 +44,17 @@ const ChatThread = ({ selectedUser, onBack }) => {
             </AvatarFallback>
           </Avatar>
           {isOnline && (
-            <span className='absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-green-500 ring-2 ring-white' />
+            <span className='absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full bg-green-500 ring-2 ring-black' />
           )}
         </div>
         <div className='flex flex-col min-w-0'>
           <Link
             to={`/profile/${selectedUser?._id}`}
-            className='text-sm font-semibold text-gray-900 truncate hover:underline'
+            className='text-sm font-semibold text-gray-100 truncate hover:underline'
           >
             {selectedUser?.username}
           </Link>
-          <span className='text-xs text-gray-500'>
+          <span className='text-xs text-zinc-400'>
             {isTyping ? 'typing…' : isOnline ? 'Active now' : lastActiveLabel(selectedUser?.lastActiveAt)}
           </span>
         </div>

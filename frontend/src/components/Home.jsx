@@ -4,6 +4,7 @@ import useGetFollowings from '@/hooks/useGetFollowings';
 import Posts from './Posts';
 import RightSidebar from './RightSidebar';
 import StoriesBar from './stories/StoriesBar';
+import MessagesPill from './MessagesPill';
 
 export default function Home() {
   useGetAllPost();
@@ -19,6 +20,7 @@ export default function Home() {
       <aside className='hidden min-[1160px]:block w-[320px] shrink-0'>
         <RightSidebar />
       </aside>
+      <MessagesPill />
     </div>
   );
 }

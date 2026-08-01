@@ -44,7 +44,7 @@ function EditCaptionDialog({ open, setOpen, post }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className='max-w-md rounded-xl'>
-        <DialogTitle className='text-base font-semibold text-gray-900'>Edit caption</DialogTitle>
+        <DialogTitle className='text-base font-semibold text-gray-100'>Edit caption</DialogTitle>
         <DialogDescription className='hidden'>Edit the caption of your post.</DialogDescription>
         <Textarea
           value={caption}
@@ -54,7 +54,7 @@ function EditCaptionDialog({ open, setOpen, post }) {
           className='min-h-[100px] text-sm focus-visible:ring-transparent'
         />
         <div className='flex items-center justify-between'>
-          <span className='text-xs text-gray-400'>
+          <span className='text-xs text-zinc-500'>
             {caption.length}/{MAX_CAPTION}
           </span>
           <div className='flex gap-2'>

@@ -40,22 +40,22 @@ function Explore() {
 
   return (
     <div className='max-w-4xl mx-auto p-4'>
-      <h1 className='text-xl font-bold text-gray-900 mb-4'>Explore</h1>
+      <h1 className='text-xl font-bold text-gray-100 mb-4'>Explore</h1>
 
       {loading && (
         <div className='grid grid-cols-3 gap-1'>
           {Array.from({ length: 9 }).map((_, i) => (
-            <div key={i} className='aspect-square animate-pulse bg-gray-200 rounded' />
+            <div key={i} className='aspect-square animate-pulse bg-zinc-800 rounded' />
           ))}
         </div>
       )}
 
       {!loading && error && (
         <div className='flex flex-col items-center gap-2 py-16'>
-          <p className='text-sm text-gray-500'>Couldn&apos;t load posts.</p>
+          <p className='text-sm text-zinc-400'>Couldn&apos;t load posts.</p>
           <button
             onClick={fetchPosts}
-            className='text-sm font-semibold text-blue-500 hover:text-blue-700 cursor-pointer'
+            className='text-sm font-semibold text-blue-400 hover:text-blue-300 cursor-pointer'
           >
             Retry
           </button>
@@ -68,7 +68,7 @@ function Explore() {
             <button
               key={post._id}
               onClick={() => openPost(post)}
-              className='group relative aspect-square overflow-hidden bg-gray-100 focus:outline-none cursor-pointer'
+              className='group relative aspect-square overflow-hidden bg-zinc-900 focus:outline-none cursor-pointer'
             >
               <img
                 src={cdn(post.image, 500)}

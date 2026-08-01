@@ -16,14 +16,14 @@ function PostActions({ liked, popping, bookmarked, onLike, onComment, onShare, o
             size={24}
             strokeWidth={liked ? 2.5 : 2}
             fill={liked ? 'currentColor' : 'none'}
-            className={`${liked ? 'text-red-500' : 'text-gray-900 hover:text-gray-500'} ${popping ? 'like-pop' : ''}`}
+            className={`${liked ? 'text-red-500' : 'text-gray-100 hover:text-zinc-400'} ${popping ? 'like-pop' : ''}`}
           />
         </button>
         <button aria-label='Comments' onClick={onComment} className='cursor-pointer'>
-          <MessageCircle size={24} className='text-gray-900 hover:text-gray-500 -scale-x-100' />
+          <MessageCircle size={24} className='text-gray-100 hover:text-zinc-400 -scale-x-100' />
         </button>
         <button aria-label='Share' onClick={onShare} className='cursor-pointer'>
-          <Send size={24} className='text-gray-900 hover:text-gray-500' />
+          <Send size={24} className='text-gray-100 hover:text-zinc-400' />
         </button>
       </div>
       <button
@@ -35,7 +35,7 @@ function PostActions({ liked, popping, bookmarked, onLike, onComment, onShare, o
           size={24}
           strokeWidth={bookmarked ? 2.5 : 2}
           fill={bookmarked ? 'currentColor' : 'none'}
-          className='text-gray-900 hover:text-gray-500'
+          className='text-gray-100 hover:text-zinc-400'
         />
       </button>
     </div>

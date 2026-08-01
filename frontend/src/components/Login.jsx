@@ -65,18 +65,18 @@ const Login = () => {
   };
 
   return (
-    <div className='flex min-h-screen w-full items-center justify-center bg-white px-4'>
+    <div className='flex min-h-screen w-full items-center justify-center bg-black px-4'>
       <div className='flex w-full max-w-sm flex-col gap-3'>
-        <div className='rounded-lg border border-gray-200 bg-white p-8'>
-          <h1 className='mb-2 text-center text-3xl font-bold tracking-tight text-gray-900'>
+        <div className='rounded-lg border border-zinc-800 bg-black p-8'>
+          <h1 className='mb-2 text-center text-3xl font-bold tracking-tight text-gray-100'>
             SastaGram
           </h1>
-          <p className='mb-6 text-center text-sm text-gray-500'>
+          <p className='mb-6 text-center text-sm text-zinc-400'>
             Log in to see photos and videos from your friends.
           </p>
           <form onSubmit={loginHandler} noValidate className='flex flex-col gap-4'>
             <div>
-              <Label htmlFor='login-email' className='text-sm font-semibold text-gray-900'>
+              <Label htmlFor='login-email' className='text-sm font-semibold text-gray-100'>
                 Email
               </Label>
               <Input
@@ -93,7 +93,7 @@ const Login = () => {
               ) : null}
             </div>
             <div>
-              <Label htmlFor='login-password' className='text-sm font-semibold text-gray-900'>
+              <Label htmlFor='login-password' className='text-sm font-semibold text-gray-100'>
                 Password
               </Label>
               <Input
@@ -125,9 +125,9 @@ const Login = () => {
             </Button>
           </form>
         </div>
-        <div className='rounded-lg border border-gray-200 bg-white p-4 text-center text-sm text-gray-900'>
+        <div className='rounded-lg border border-zinc-800 bg-black p-4 text-center text-sm text-gray-100'>
           Don't have an account?{' '}
-          <Link to='/signup' className='font-semibold text-blue-500 hover:text-blue-700'>
+          <Link to='/signup' className='font-semibold text-blue-400 hover:text-blue-300'>
             Sign up
           </Link>
         </div>

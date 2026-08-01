@@ -10,7 +10,8 @@ import useRequireLogin from '@/hooks/useRequireLogin';
 // Reusable follow/unfollow toggle. Keeps the existing
 // GET /api/v1/user/followorunfollow/:id contract and authSlice update.
 // Guests see the Follow button too — clicking it routes them to /login.
-const FollowButton = ({ userId, className = '' }) => {
+// variant="link" renders the IG-sidebar textual blue link instead of a button.
+const FollowButton = ({ userId, className = '', variant = 'button' }) => {
   const { user } = useSelector(store => store.auth);
   const dispatch = useDispatch();
   const requireLogin = useRequireLogin();
@@ -42,13 +43,28 @@ const FollowButton = ({ userId, className = '' }) => {
     }
   };
 
+  if (variant === 'link') {
+    return (
+      <button
+        type='button'
+        onClick={followUnfollowHandler}
+        disabled={loading}
+        className={`text-xs font-semibold cursor-pointer disabled:opacity-50 ${
+          isFollowing ? 'text-zinc-400 hover:text-gray-100' : 'text-blue-400 hover:text-blue-300'
+        } ${className}`}
+      >
+        {isFollowing ? 'Following' : 'Follow'}
+      </button>
+    );
+  }
+
   return (
     <Button
       onClick={followUnfollowHandler}
       disabled={loading}
       variant={isFollowing ? 'secondary' : 'default'}
       className={`h-8 px-4 text-sm font-semibold ${
-        isFollowing ? 'text-gray-900' : 'bg-blue-500 hover:bg-blue-600 text-white'
+        isFollowing ? 'text-gray-100' : 'bg-blue-500 hover:bg-blue-600 text-white'
       } ${className}`}
     >
       {loading ? (

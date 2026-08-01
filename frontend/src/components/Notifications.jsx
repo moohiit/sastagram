@@ -41,7 +41,7 @@ function PushToggle() {
 
   if (denied) {
     return (
-      <p className='text-xs text-gray-400'>
+      <p className='text-xs text-zinc-500'>
         Notifications are blocked — allow them in your browser settings.
       </p>
     );
@@ -77,7 +77,7 @@ function PushToggle() {
       onClick={toggle}
       disabled={busy}
       title={subscribed ? 'Disable push notifications' : 'Enable push notifications'}
-      className='flex items-center gap-1.5 text-sm text-blue-500 hover:text-blue-700 cursor-pointer rounded-lg px-2 py-1 hover:bg-gray-100 transition-colors'
+      className='flex items-center gap-1.5 text-sm text-blue-400 hover:text-blue-300 cursor-pointer rounded-lg px-2 py-1 hover:bg-zinc-900 transition-colors'
     >
       {busy ? (
         <Loader2 size={20} className='animate-spin' />
@@ -111,9 +111,9 @@ export default function Notifications() {
         {user && isPushSupported() && <PushToggle />}
       </div>
       {notifications.length === 0 ? (
-        <p className='text-sm text-gray-500'>No new notification</p>
+        <p className='text-sm text-zinc-400'>No new notification</p>
       ) : (
-        <div className='flex flex-col divide-y divide-gray-200 rounded-lg border border-gray-200 bg-white'>
+        <div className='flex flex-col divide-y divide-zinc-800 rounded-lg border border-zinc-800 bg-black'>
           {notifications.map((notification) => (
             <div key={notification._id} className='p-3'>
               <NotificationItem notification={notification} />

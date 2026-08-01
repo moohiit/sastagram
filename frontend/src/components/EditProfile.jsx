@@ -85,10 +85,10 @@ const EditProfile = () => {
 
   return (
     <div className='mx-auto w-full max-w-[470px] px-4 py-6'>
-      <h1 className='mb-4 text-xl font-bold text-gray-900'>Edit profile</h1>
-      <section className='flex flex-col gap-6 rounded-lg border border-gray-200 bg-white p-4'>
+      <h1 className='mb-4 text-xl font-bold text-gray-100'>Edit profile</h1>
+      <section className='flex flex-col gap-6 rounded-lg border border-zinc-800 bg-black p-4'>
         {/* Avatar + change photo */}
-        <div className='flex items-center justify-between gap-3 rounded-lg bg-gray-100 p-4'>
+        <div className='flex items-center justify-between gap-3 rounded-lg bg-zinc-900 p-4'>
           <div className='flex min-w-0 items-center gap-4'>
             <Link to={`/profile/${user?._id}`}>
               <Avatar className='h-11 w-11'>
@@ -100,11 +100,11 @@ const EditProfile = () => {
               </Avatar>
             </Link>
             <div className='min-w-0'>
-              <p className='truncate text-sm font-semibold text-gray-900'>
+              <p className='truncate text-sm font-semibold text-gray-100'>
                 <Link to={`/profile/${user?._id}`}>{user?.username}</Link>
               </p>
               {user?.bio ? (
-                <p className='truncate text-sm text-gray-500'>{user.bio}</p>
+                <p className='truncate text-sm text-zinc-400'>{user.bio}</p>
               ) : null}
             </div>
           </div>
@@ -125,7 +125,7 @@ const EditProfile = () => {
 
         {/* Bio */}
         <div>
-          <Label htmlFor='edit-bio' className='text-sm font-semibold text-gray-900'>
+          <Label htmlFor='edit-bio' className='text-sm font-semibold text-gray-100'>
             Bio
           </Label>
           <Textarea
@@ -139,7 +139,7 @@ const EditProfile = () => {
 
         {/* Gender */}
         <div>
-          <Label className='text-sm font-semibold text-gray-900'>Gender</Label>
+          <Label className='text-sm font-semibold text-gray-100'>Gender</Label>
           <Select
             defaultValue={input.gender || undefined}
             onValueChange={value => setInput(prev => ({ ...prev, gender: value }))}

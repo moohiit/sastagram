@@ -16,7 +16,7 @@ const SharedPostCard = ({ post, onOpen }) => (
       e.stopPropagation();
       onOpen(post);
     }}
-    className='w-56 max-w-full bg-white border border-gray-200 rounded-lg overflow-hidden cursor-pointer'
+    className='w-56 max-w-full bg-black border border-zinc-800 rounded-lg overflow-hidden cursor-pointer'
   >
     <div className='flex items-center gap-2 px-2.5 py-2'>
       <Avatar className='h-6 w-6'>
@@ -25,7 +25,7 @@ const SharedPostCard = ({ post, onOpen }) => (
           {post?.author?.username?.slice(0, 2)?.toUpperCase() || 'US'}
         </AvatarFallback>
       </Avatar>
-      <span className='text-xs font-semibold text-gray-900 truncate'>
+      <span className='text-xs font-semibold text-gray-100 truncate'>
         {post?.author?.username}
       </span>
     </div>
@@ -36,7 +36,7 @@ const SharedPostCard = ({ post, onOpen }) => (
       className='w-full aspect-square object-cover'
     />
     {post?.caption && (
-      <p className='px-2.5 py-1.5 text-xs text-gray-500 truncate'>{post.caption}</p>
+      <p className='px-2.5 py-1.5 text-xs text-zinc-400 truncate'>{post.caption}</p>
     )}
   </div>
 );
@@ -122,7 +122,7 @@ const Messages = ({ selectedUser }) => {
           {[64, 40, 56, 32, 48].map((w, i) => (
             <div
               key={i}
-              className={`h-9 animate-pulse bg-gray-200 rounded-2xl ${i % 2 ? 'self-end' : 'self-start'}`}
+              className={`h-9 animate-pulse bg-zinc-800 rounded-2xl ${i % 2 ? 'self-end' : 'self-start'}`}
               style={{ width: `${w}%` }}
             />
           ))}
@@ -131,7 +131,7 @@ const Messages = ({ selectedUser }) => {
         <>
           {loadingOlder && (
             <div className='flex justify-center py-2'>
-              <Loader2 className='h-5 w-5 animate-spin text-gray-400' />
+              <Loader2 className='h-5 w-5 animate-spin text-zinc-500' />
             </div>
           )}
 
@@ -143,15 +143,15 @@ const Messages = ({ selectedUser }) => {
                   {selectedUser?.username?.slice(0, 2)?.toUpperCase() || 'US'}
                 </AvatarFallback>
               </Avatar>
-              <span className='text-base font-semibold text-gray-900 mt-2'>
+              <span className='text-base font-semibold text-gray-100 mt-2'>
                 {selectedUser?.username}
               </span>
-              <span className='text-xs text-gray-500'>SastaGram</span>
+              <span className='text-xs text-zinc-400'>SastaGram</span>
               <Link to={`/profile/${selectedUser?._id}`}>
                 <Button variant='secondary' className='h-8 mt-3'>View profile</Button>
               </Link>
               {messages.length === 0 && (
-                <p className='text-sm text-gray-500 mt-4'>No messages yet — say hi 👋</p>
+                <p className='text-sm text-zinc-400 mt-4'>No messages yet — say hi 👋</p>
               )}
             </div>
           )}
@@ -176,7 +176,7 @@ const Messages = ({ selectedUser }) => {
               <React.Fragment key={msg._id}>
                 {newDay && (
                   <div className='flex justify-center my-4'>
-                    <span className='text-xs text-gray-400'>{formatDayLabel(msg.createdAt)}</span>
+                    <span className='text-xs text-zinc-500'>{formatDayLabel(msg.createdAt)}</span>
                   </div>
                 )}
                 <div
@@ -197,7 +197,7 @@ const Messages = ({ selectedUser }) => {
                   <div
                     onClick={() => setExpandedId(expanded ? null : msg._id)}
                     title={msg.createdAt ? new Date(msg.createdAt).toLocaleString() : undefined}
-                    className={`${msg.post ? 'p-1.5' : 'px-3.5 py-2'} max-w-[75%] text-sm break-words cursor-pointer ${bubbleShape} ${mine ? 'bg-blue-500 text-white' : 'bg-gray-100 text-gray-900'}`}
+                    className={`${msg.post ? 'p-1.5' : 'px-3.5 py-2'} max-w-[75%] text-sm break-words cursor-pointer ${bubbleShape} ${mine ? 'bg-blue-500 text-white' : 'bg-zinc-900 text-gray-100'}`}
                   >
                     {msg.post && <SharedPostCard post={msg.post} onOpen={openSharedPost} />}
                     {msg.message && (
@@ -206,7 +206,7 @@ const Messages = ({ selectedUser }) => {
                   </div>
                 </div>
                 {expanded && (
-                  <div className={`text-[11px] text-gray-400 mt-0.5 ${mine ? 'text-right pr-1' : 'text-left pl-10'}`}>
+                  <div className={`text-[11px] text-zinc-500 mt-0.5 ${mine ? 'text-right pr-1' : 'text-left pl-10'}`}>
                     {timeAgo(msg.createdAt)}
                   </div>
                 )}
@@ -215,7 +215,7 @@ const Messages = ({ selectedUser }) => {
           })}
 
           {showSeen && (
-            <div className='text-xs text-gray-400 text-right mt-1 pr-1'>Seen</div>
+            <div className='text-xs text-zinc-500 text-right mt-1 pr-1'>Seen</div>
           )}
 
           {sharedPost && (

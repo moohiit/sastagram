@@ -177,7 +177,7 @@ function CreatePost({ open, setOpen }) {
   return (
     <Dialog open={open} onOpenChange={(next) => !next && resetAndClose()}>
       <DialogContent className='max-w-lg rounded-xl'>
-        <DialogTitle className='text-base font-semibold text-gray-900 text-center'>
+        <DialogTitle className='text-base font-semibold text-gray-100 text-center'>
           Create new post
         </DialogTitle>
         <DialogDescription className='hidden'>Share a new photo.</DialogDescription>
@@ -187,7 +187,7 @@ function CreatePost({ open, setOpen }) {
             <AvatarImage src={user?.profilePicture} alt={user?.username} />
             <AvatarFallback>{(user?.username || 'U').slice(0, 2).toUpperCase()}</AvatarFallback>
           </Avatar>
-          <span className='text-sm font-semibold text-gray-900'>{user?.username}</span>
+          <span className='text-sm font-semibold text-gray-100'>{user?.username}</span>
         </div>
 
         {imagePreview ? (
@@ -195,7 +195,7 @@ function CreatePost({ open, setOpen }) {
             <img
               src={imagePreview}
               alt='Preview'
-              className='w-full max-h-[320px] object-cover rounded-lg border border-gray-200'
+              className='w-full max-h-[320px] object-cover rounded-lg border border-zinc-800'
             />
             <button
               onClick={removeImage}
@@ -216,12 +216,12 @@ function CreatePost({ open, setOpen }) {
             onDragLeave={() => setDragOver(false)}
             onDrop={dropHandler}
             className={`flex flex-col items-center justify-center gap-2 h-56 rounded-lg border-2 border-dashed cursor-pointer transition-colors ${
-              dragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:bg-gray-100'
+              dragOver ? 'border-blue-500 bg-blue-500/10' : 'border-zinc-800 hover:bg-zinc-900'
             }`}
           >
-            <ImagePlus size={40} className='text-gray-400' />
-            <p className='text-sm text-gray-900'>Drag a photo here</p>
-            <p className='text-xs text-gray-400'>or click to select from your device</p>
+            <ImagePlus size={40} className='text-zinc-500' />
+            <p className='text-sm text-gray-100'>Drag a photo here</p>
+            <p className='text-xs text-zinc-500'>or click to select from your device</p>
           </div>
         )}
 
@@ -238,7 +238,7 @@ function CreatePost({ open, setOpen }) {
             <button
               onClick={suggestCaptions}
               disabled={suggesting || loading}
-              className='self-start inline-flex items-center gap-1.5 text-sm font-semibold text-blue-500 hover:text-blue-600 disabled:opacity-50'
+              className='self-start inline-flex items-center gap-1.5 text-sm font-semibold text-blue-400 hover:text-blue-600 disabled:opacity-50'
             >
               {suggesting ? <Loader2 size={14} className='animate-spin' /> : <Sparkles size={14} />}
               {suggesting ? 'Thinking…' : 'Suggest captions'}
@@ -249,7 +249,7 @@ function CreatePost({ open, setOpen }) {
                   <button
                     key={s}
                     onClick={() => setCaption(s.slice(0, MAX_CAPTION))}
-                    className='text-xs border border-gray-200 rounded-full px-3 py-1.5 text-gray-900 hover:border-blue-500 hover:text-blue-600 text-left'
+                    className='text-xs border border-zinc-800 rounded-full px-3 py-1.5 text-gray-100 hover:border-blue-500 hover:text-blue-600 text-left'
                   >
                     {s}
                   </button>
@@ -266,10 +266,10 @@ function CreatePost({ open, setOpen }) {
             onChange={(e) => setCaption(e.target.value)}
             placeholder='Write a caption...'
             disabled={loading}
-            className='min-h-[80px] text-sm border-gray-200 focus-visible:ring-transparent resize-none'
+            className='min-h-[80px] text-sm border-zinc-800 focus-visible:ring-transparent resize-none'
           />
           <div className='flex justify-end mt-1'>
-            <span className='text-xs text-gray-400'>
+            <span className='text-xs text-zinc-500'>
               {caption.length}/{MAX_CAPTION}
             </span>
           </div>
@@ -281,7 +281,7 @@ function CreatePost({ open, setOpen }) {
             disabled={loading}
             aria-label={pollOpen ? 'Remove poll' : 'Add poll'}
             className={`self-start inline-flex items-center gap-1.5 text-sm font-semibold cursor-pointer disabled:opacity-50 ${
-              pollOpen ? 'text-red-500 hover:text-red-600' : 'text-blue-500 hover:text-blue-600'
+              pollOpen ? 'text-red-500 hover:text-red-600' : 'text-blue-400 hover:text-blue-600'
             }`}
           >
             <BarChart2 size={14} />
@@ -289,14 +289,14 @@ function CreatePost({ open, setOpen }) {
           </button>
 
           {pollOpen && (
-            <div className='flex flex-col gap-2 border border-gray-200 rounded-lg p-3'>
+            <div className='flex flex-col gap-2 border border-zinc-800 rounded-lg p-3'>
               <Input
                 value={pollQuestion}
                 maxLength={MAX_POLL_QUESTION}
                 onChange={(e) => setPollQuestion(e.target.value)}
                 placeholder='Ask a question...'
                 disabled={loading}
-                className='h-9 text-sm border-gray-200 focus-visible:ring-transparent'
+                className='h-9 text-sm border-zinc-800 focus-visible:ring-transparent'
               />
               {pollOptions.map((option, index) => (
                 <div key={index} className='flex items-center gap-2'>
@@ -306,14 +306,14 @@ function CreatePost({ open, setOpen }) {
                     onChange={(e) => setPollOption(index, e.target.value)}
                     placeholder={`Option ${index + 1}`}
                     disabled={loading}
-                    className='h-9 text-sm border-gray-200 focus-visible:ring-transparent'
+                    className='h-9 text-sm border-zinc-800 focus-visible:ring-transparent'
                   />
                   {pollOptions.length > MIN_POLL_OPTIONS && (
                     <button
                       onClick={() => removePollOption(index)}
                       disabled={loading}
                       aria-label={`Remove option ${index + 1}`}
-                      className='text-gray-400 hover:text-red-500 cursor-pointer disabled:opacity-50'
+                      className='text-zinc-500 hover:text-red-500 cursor-pointer disabled:opacity-50'
                     >
                       <X size={16} />
                     </button>
@@ -324,7 +324,7 @@ function CreatePost({ open, setOpen }) {
                 <button
                   onClick={addPollOption}
                   disabled={loading}
-                  className='self-start inline-flex items-center gap-1 text-sm font-semibold text-blue-500 hover:text-blue-600 cursor-pointer disabled:opacity-50'
+                  className='self-start inline-flex items-center gap-1 text-sm font-semibold text-blue-400 hover:text-blue-600 cursor-pointer disabled:opacity-50'
                 >
                   <Plus size={14} /> Add option
                 </button>

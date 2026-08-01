@@ -134,13 +134,13 @@ function StoryViewer({ groups, initialGroupIndex, onClose, onSeen, onDelete }) {
         {/* Progress bars */}
         <div className='absolute top-0 inset-x-0 z-20 flex gap-1 p-3'>
           {group.stories.map((s, i) => (
-            <div key={s._id} className='h-[3px] flex-1 rounded-full bg-white/30 overflow-hidden'>
-              {i < storyIndex && <div className='h-full w-full bg-white' />}
+            <div key={s._id} className='h-[3px] flex-1 rounded-full bg-gray-100/30 overflow-hidden'>
+              {i < storyIndex && <div className='h-full w-full bg-gray-100' />}
               {i === storyIndex && (
                 <div
                   key={`${group.user._id}-${s._id}`}
                   onAnimationEnd={goNext}
-                  className='h-full bg-white'
+                  className='h-full bg-gray-100'
                   style={{
                     animation: `story-progress ${STORY_DURATION_MS}ms linear forwards`,
                     animationPlayState: paused ? 'paused' : 'running',

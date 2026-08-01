@@ -9,12 +9,12 @@ function TopBar() {
   const { user } = useSelector(store => store.auth);
 
   return (
-    <header className='md:hidden sticky top-0 z-30 flex h-14 items-center justify-between border-b border-gray-200 bg-white px-4'>
-      <Link to='/' className='font-bold text-xl tracking-tight text-gray-900'>
+    <header className='md:hidden sticky top-0 z-30 flex h-14 items-center justify-between border-b border-zinc-800 bg-black px-4'>
+      <Link to='/' className='font-bold text-xl tracking-tight text-gray-100'>
         SastaGram
       </Link>
       {user ? (
-        <Link to='/messages' aria-label='Messages' className='p-1 text-gray-900'>
+        <Link to='/messages' aria-label='Messages' className='p-1 text-gray-100'>
           <MessageCircle size={24} />
         </Link>
       ) : (

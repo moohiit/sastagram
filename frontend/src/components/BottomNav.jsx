@@ -19,11 +19,11 @@ function BottomNav({ openCreate }) {
     strokeWidth: isActive(path) ? 2.5 : 2,
   });
 
-  const itemClass = 'flex flex-1 items-center justify-center py-2.5 text-gray-900';
+  const itemClass = 'flex flex-1 items-center justify-center py-2.5 text-gray-100';
 
   if (!user) {
     return (
-      <nav className='md:hidden fixed bottom-0 inset-x-0 z-30 flex items-center border-t border-gray-200 bg-white'>
+      <nav className='md:hidden fixed bottom-0 inset-x-0 z-30 flex items-center border-t border-zinc-800 bg-black'>
         <Link to='/' aria-label='Home' className={itemClass}>
           <Home {...iconProps('/')} />
         </Link>
@@ -46,7 +46,7 @@ function BottomNav({ openCreate }) {
   }
 
   return (
-    <nav className='md:hidden fixed bottom-0 inset-x-0 z-30 flex border-t border-gray-200 bg-white'>
+    <nav className='md:hidden fixed bottom-0 inset-x-0 z-30 flex border-t border-zinc-800 bg-black'>
       <Link to='/' aria-label='Home' className={itemClass}>
         <Home {...iconProps('/')} />
       </Link>
@@ -71,7 +71,7 @@ function BottomNav({ openCreate }) {
       </Link>
       <Link to={`/profile/${user?._id}`} aria-label='Profile' className={itemClass}>
         <Avatar
-          className={`h-7 w-7 ${isActive(`/profile/${user?._id}`) ? 'ring-2 ring-gray-900' : ''}`}
+          className={`h-7 w-7 ${isActive(`/profile/${user?._id}`) ? 'ring-2 ring-gray-100' : ''}`}
         >
           <AvatarImage src={user?.profilePicture} alt={user?.username} />
           <AvatarFallback>{user?.username?.[0]?.toUpperCase() || 'U'}</AvatarFallback>

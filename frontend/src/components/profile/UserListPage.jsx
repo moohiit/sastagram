@@ -7,10 +7,10 @@ import UserRow from './UserRow';
 
 const RowSkeleton = () => (
   <div className='flex items-center gap-3 px-3 py-2'>
-    <div className='h-11 w-11 animate-pulse rounded-full bg-gray-200' />
+    <div className='h-11 w-11 animate-pulse rounded-full bg-zinc-800' />
     <div className='flex flex-col gap-2'>
-      <div className='h-3 w-28 animate-pulse rounded bg-gray-200' />
-      <div className='h-3 w-40 animate-pulse rounded bg-gray-200' />
+      <div className='h-3 w-28 animate-pulse rounded bg-zinc-800' />
+      <div className='h-3 w-40 animate-pulse rounded bg-zinc-800' />
     </div>
   </div>
 );
@@ -53,16 +53,16 @@ const UserListPage = ({ type, title }) => {
 
   return (
     <div className='mx-auto w-full max-w-[470px] px-4 py-6'>
-      <div className='rounded-lg border border-gray-200 bg-white'>
-        <div className='flex items-center gap-3 border-b border-gray-200 p-3'>
+      <div className='rounded-lg border border-zinc-800 bg-black'>
+        <div className='flex items-center gap-3 border-b border-zinc-800 p-3'>
           <button
             onClick={() => navigate(-1)}
             aria-label='Go back'
-            className='cursor-pointer rounded-lg p-1 transition-colors hover:bg-gray-100'
+            className='cursor-pointer rounded-lg p-1 transition-colors hover:bg-zinc-900'
           >
-            <ArrowLeft size={20} className='text-gray-900' />
+            <ArrowLeft size={20} className='text-gray-100' />
           </button>
-          <h1 className='text-base font-semibold text-gray-900'>{title}</h1>
+          <h1 className='text-base font-semibold text-gray-100'>{title}</h1>
         </div>
         <div className='p-2'>
           {users === null && !error ? (
@@ -72,11 +72,11 @@ const UserListPage = ({ type, title }) => {
               <RowSkeleton />
             </>
           ) : error ? (
-            <p className='px-3 py-8 text-center text-sm text-gray-500'>
+            <p className='px-3 py-8 text-center text-sm text-zinc-400'>
               Couldn't load {title.toLowerCase()}. Please try again.
             </p>
           ) : users.length === 0 ? (
-            <p className='px-3 py-8 text-center text-sm text-gray-500'>
+            <p className='px-3 py-8 text-center text-sm text-zinc-400'>
               No {title.toLowerCase()} yet.
             </p>
           ) : (

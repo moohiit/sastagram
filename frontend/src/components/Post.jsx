@@ -211,7 +211,7 @@ function Post({ post }) {
   }
 
   return (
-    <article className='bg-white border border-gray-200 rounded-lg mb-4 w-full'>
+    <article className='bg-black border-b border-zinc-800 pb-4 mb-4 w-full'>
       <PostHeader
         post={post}
         isOwn={isOwn}
@@ -254,7 +254,7 @@ function Post({ post }) {
 
       {likeCount > 0 && (
         <div className='px-3 pt-2'>
-          <span className='text-sm font-semibold text-gray-900'>
+          <span className='text-sm font-semibold text-gray-100'>
             {likeCount.toLocaleString()} {likeCount === 1 ? 'like' : 'likes'}
           </span>
         </div>
@@ -267,7 +267,7 @@ function Post({ post }) {
       {comments.length > 0 && (
         <button
           onClick={() => setCommentsOpen(true)}
-          className='block px-3 pt-1 text-sm text-gray-500 cursor-pointer hover:text-gray-900'
+          className='block px-3 pt-1 text-sm text-zinc-400 cursor-pointer hover:text-gray-100'
         >
           {comments.length === 1 ? 'View 1 comment' : `View all ${comments.length} comments`}
         </button>
@@ -289,12 +289,12 @@ function Post({ post }) {
             if (e.key === 'Enter') addCommentHandler()
           }}
           placeholder={user ? 'Add a comment...' : 'Log in to comment'}
-          className='flex-1 outline-none text-sm text-gray-900 placeholder:text-gray-400 bg-transparent'
+          className='flex-1 outline-none text-sm text-gray-100 placeholder:text-zinc-500 bg-transparent'
         />
         {comment.trim() && (
           <button
             onClick={() => addCommentHandler()}
-            className='text-sm font-semibold text-blue-500 hover:text-blue-700 cursor-pointer'
+            className='text-sm font-semibold text-blue-400 hover:text-blue-300 cursor-pointer'
           >
             Post
           </button>

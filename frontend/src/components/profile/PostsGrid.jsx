@@ -8,10 +8,10 @@ const PostsGrid = ({ posts, emptyText = 'No posts yet' }) => {
   if (!posts || posts.length === 0) {
     return (
       <div className='flex flex-col items-center justify-center gap-3 py-16'>
-        <div className='flex h-14 w-14 items-center justify-center rounded-full border-2 border-gray-900'>
-          <Camera size={28} strokeWidth={1.5} className='text-gray-900' />
+        <div className='flex h-14 w-14 items-center justify-center rounded-full border-2 border-gray-100'>
+          <Camera size={28} strokeWidth={1.5} className='text-gray-100' />
         </div>
-        <p className='text-base font-semibold text-gray-900'>{emptyText}</p>
+        <p className='text-base font-semibold text-gray-100'>{emptyText}</p>
       </div>
     );
   }

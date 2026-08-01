@@ -103,7 +103,7 @@ function CommentDialog({ open, setOpen, post }) {
           {/* Thread */}
           <div className='flex flex-col md:w-1/2 min-h-0 max-h-[85vh]'>
             {/* Header */}
-            <div className='flex items-center gap-3 p-3 border-b border-gray-200'>
+            <div className='flex items-center gap-3 p-3 border-b border-zinc-800'>
               <Link to={`/profile/${post.author?._id}`}>
                 <Avatar className='h-8 w-8'>
                   <AvatarImage src={post.author?.profilePicture} alt={post.author?.username} />
@@ -112,7 +112,7 @@ function CommentDialog({ open, setOpen, post }) {
               </Link>
               <Link
                 to={`/profile/${post.author?._id}`}
-                className='text-sm font-semibold text-gray-900 hover:opacity-70'
+                className='text-sm font-semibold text-gray-100 hover:opacity-70'
               >
                 {post.author?.username || 'Anonymous'}
               </Link>
@@ -126,16 +126,16 @@ function CommentDialog({ open, setOpen, post }) {
                     <AvatarImage src={post.author?.profilePicture} alt={post.author?.username} />
                     <AvatarFallback>{fallbackInitials(post.author?.username)}</AvatarFallback>
                   </Avatar>
-                  <p className='text-sm text-gray-900'>
+                  <p className='text-sm text-gray-100'>
                     <span className='font-semibold mr-1.5'>{post.author?.username}</span>
                     {post.caption}
-                    <span className='block text-xs text-gray-400 mt-1'>{timeAgo(post.createdAt)}</span>
+                    <span className='block text-xs text-zinc-500 mt-1'>{timeAgo(post.createdAt)}</span>
                   </p>
                 </div>
               )}
 
               {comments.length === 0 && !post.caption && (
-                <p className='text-sm text-gray-500 text-center pt-8'>
+                <p className='text-sm text-zinc-400 text-center pt-8'>
                   No comments yet. Start the conversation.
                 </p>
               )}
@@ -149,7 +149,7 @@ function CommentDialog({ open, setOpen, post }) {
                     </Avatar>
                   </Link>
                   <div className='flex-1 min-w-0'>
-                    <p className='text-sm text-gray-900 break-words'>
+                    <p className='text-sm text-gray-100 break-words'>
                       <Link
                         to={`/profile/${cmnt.author?._id}`}
                         className='font-semibold mr-1.5 hover:opacity-70'
@@ -158,13 +158,13 @@ function CommentDialog({ open, setOpen, post }) {
                       </Link>
                       {cmnt.text}
                     </p>
-                    <span className='text-xs text-gray-400'>{timeAgo(cmnt.createdAt)}</span>
+                    <span className='text-xs text-zinc-500'>{timeAgo(cmnt.createdAt)}</span>
                   </div>
                   {user && (cmnt.author?._id === user._id || post.author?._id === user._id) && (
                     <button
                       onClick={() => deleteCommentHandler(cmnt._id)}
                       title='Delete comment'
-                      className='text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity self-start p-1 cursor-pointer'
+                      className='text-zinc-500 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity self-start p-1 cursor-pointer'
                     >
                       <Trash2 className='w-4 h-4' />
                     </button>
@@ -174,7 +174,7 @@ function CommentDialog({ open, setOpen, post }) {
             </div>
 
             {/* Add comment */}
-            <div className='flex items-center gap-2 border-t border-gray-200 p-3'>
+            <div className='flex items-center gap-2 border-t border-zinc-800 p-3'>
               <input
                 type='text'
                 value={comment}
@@ -190,12 +190,12 @@ function CommentDialog({ open, setOpen, post }) {
                   if (e.key === 'Enter') sendComment()
                 }}
                 placeholder={user ? 'Add a comment...' : 'Log in to comment'}
-                className='flex-1 outline-none text-sm text-gray-900 placeholder:text-gray-400 bg-transparent'
+                className='flex-1 outline-none text-sm text-gray-100 placeholder:text-zinc-500 bg-transparent'
               />
               <button
                 onClick={() => sendComment()}
                 disabled={!comment.trim()}
-                className='text-sm font-semibold text-blue-500 hover:text-blue-700 disabled:opacity-40 disabled:cursor-default cursor-pointer'
+                className='text-sm font-semibold text-blue-400 hover:text-blue-300 disabled:opacity-40 disabled:cursor-default cursor-pointer'
               >
                 Post
               </button>

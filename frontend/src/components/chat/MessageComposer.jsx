@@ -103,8 +103,8 @@ const MessageComposer = ({ selectedUser }) => {
   };
 
   return (
-    <div className='p-3 border-t border-gray-200'>
-      <div className='flex items-center gap-2 border border-gray-200 rounded-full px-2 py-1'>
+    <div className='p-3 border-t border-zinc-800'>
+      <div className='flex items-center gap-2 border border-zinc-800 rounded-full px-2 py-1'>
         <Input
           ref={inputRef}
           value={text}
@@ -118,7 +118,7 @@ const MessageComposer = ({ selectedUser }) => {
           type='button'
           onClick={sendMessage}
           disabled={!text.trim() || sending}
-          className='text-sm font-semibold text-blue-500 hover:text-blue-700 px-2 py-1 cursor-pointer disabled:opacity-40 disabled:cursor-default'
+          className='text-sm font-semibold text-blue-400 hover:text-blue-300 px-2 py-1 cursor-pointer disabled:opacity-40 disabled:cursor-default'
         >
           Send
         </button>

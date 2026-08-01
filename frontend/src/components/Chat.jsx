@@ -94,7 +94,7 @@ function Chat() {
     <div className='flex h-[calc(100dvh-7.5rem)] md:h-[100dvh]'>
       {/* Conversation list — full-screen below md, fixed column on md+ */}
       <aside
-        className={`${threadOpen ? 'hidden md:flex' : 'flex'} w-full md:w-[340px] lg:w-[380px] shrink-0 flex-col border-r border-gray-200`}
+        className={`${threadOpen ? 'hidden md:flex' : 'flex'} w-full md:w-[340px] lg:w-[380px] shrink-0 flex-col border-r border-zinc-800`}
       >
         <ConversationList onSelect={handleSelect} selectedUserId={selectedUser?._id} />
       </aside>
@@ -105,11 +105,11 @@ function Chat() {
           <ChatThread selectedUser={selectedUser} onBack={handleBack} />
         ) : (
           <div className='flex flex-1 flex-col items-center justify-center px-4'>
-            <div className='flex items-center justify-center h-24 w-24 rounded-full border-2 border-gray-900'>
+            <div className='flex items-center justify-center h-24 w-24 rounded-full border-2 border-gray-100'>
               <MessageCircle size={44} strokeWidth={1.5} />
             </div>
-            <h2 className='text-xl font-bold text-gray-900 mt-4'>Your messages</h2>
-            <p className='text-sm text-gray-500 mt-1'>Send a message to start a chat.</p>
+            <h2 className='text-xl font-bold text-gray-100 mt-4'>Your messages</h2>
+            <p className='text-sm text-zinc-400 mt-1'>Send a message to start a chat.</p>
             <Button
               onClick={() => setNewChatOpen(true)}
               className='bg-blue-500 hover:bg-blue-600 h-8 mt-4'

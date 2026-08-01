@@ -68,18 +68,18 @@ const Signup = () => {
   };
 
   return (
-    <div className='flex min-h-screen w-full items-center justify-center bg-white px-4'>
+    <div className='flex min-h-screen w-full items-center justify-center bg-black px-4'>
       <div className='flex w-full max-w-sm flex-col gap-3'>
-        <div className='rounded-lg border border-gray-200 bg-white p-8'>
-          <h1 className='mb-2 text-center text-3xl font-bold tracking-tight text-gray-900'>
+        <div className='rounded-lg border border-zinc-800 bg-black p-8'>
+          <h1 className='mb-2 text-center text-3xl font-bold tracking-tight text-gray-100'>
             SastaGram
           </h1>
-          <p className='mb-6 text-center text-sm text-gray-500'>
+          <p className='mb-6 text-center text-sm text-zinc-400'>
             Sign up to see photos and videos from your friends.
           </p>
           <form onSubmit={signupHandler} noValidate className='flex flex-col gap-4'>
             <div>
-              <Label htmlFor='signup-username' className='text-sm font-semibold text-gray-900'>
+              <Label htmlFor='signup-username' className='text-sm font-semibold text-gray-100'>
                 Username
               </Label>
               <Input
@@ -96,7 +96,7 @@ const Signup = () => {
               ) : null}
             </div>
             <div>
-              <Label htmlFor='signup-email' className='text-sm font-semibold text-gray-900'>
+              <Label htmlFor='signup-email' className='text-sm font-semibold text-gray-100'>
                 Email
               </Label>
               <Input
@@ -113,7 +113,7 @@ const Signup = () => {
               ) : null}
             </div>
             <div>
-              <Label htmlFor='signup-password' className='text-sm font-semibold text-gray-900'>
+              <Label htmlFor='signup-password' className='text-sm font-semibold text-gray-100'>
                 Password
               </Label>
               <Input
@@ -128,7 +128,7 @@ const Signup = () => {
               {errors.password ? (
                 <p className='mt-1 text-xs text-red-500'>{errors.password}</p>
               ) : (
-                <p className='mt-1 text-xs text-gray-400'>At least 8 characters.</p>
+                <p className='mt-1 text-xs text-zinc-500'>At least 8 characters.</p>
               )}
             </div>
             <Button
@@ -147,9 +147,9 @@ const Signup = () => {
             </Button>
           </form>
         </div>
-        <div className='rounded-lg border border-gray-200 bg-white p-4 text-center text-sm text-gray-900'>
+        <div className='rounded-lg border border-zinc-800 bg-black p-4 text-center text-sm text-gray-100'>
           Have an account?{' '}
-          <Link to='/login' className='font-semibold text-blue-500 hover:text-blue-700'>
+          <Link to='/login' className='font-semibold text-blue-400 hover:text-blue-300'>
             Log in
           </Link>
         </div>
