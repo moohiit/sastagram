@@ -10,10 +10,10 @@ process.env.JWT_SECRET = 'vitest-jwt-secret';
 process.env.URL = 'http://localhost:5173';
 // AI must be disabled in tests: no test may hit the Gemini API, and search
 // tests assert the text-fallback path.
-delete process.env.GEMINI_API_KEY;
+process.env.GEMINI_API_KEY = "";
 // Web push must be disabled in tests: no test may hit a push service.
-delete process.env.VAPID_PUBLIC_KEY;
-delete process.env.VAPID_PRIVATE_KEY;
+process.env.VAPID_PUBLIC_KEY = "";
+process.env.VAPID_PRIVATE_KEY = "";
 
 let mongod;
 
