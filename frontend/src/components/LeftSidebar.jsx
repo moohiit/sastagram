@@ -22,7 +22,7 @@ function LeftSidebar({ openCreate }) {
   const location = useLocation();
   const dispatch = useDispatch();
   const { user } = useSelector(store => store.auth);
-  const { notifications, unreadCount } = useSelector(store => store.notification);
+  const { notifications = [], unreadCount = 0 } = useSelector(store => store.notification) || {};
   const [notifOpen, setNotifOpen] = useState(false);
 
   // Mark everything read on the server and zero the badge

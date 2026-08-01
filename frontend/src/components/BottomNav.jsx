@@ -9,7 +9,7 @@ import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 function BottomNav({ openCreate }) {
   const location = useLocation();
   const { user } = useSelector(store => store.auth);
-  const { unreadCount } = useSelector(store => store.notification);
+  const { unreadCount = 0 } = useSelector(store => store.notification) || {};
 
   const isActive = (path) =>
     path === '/' ? location.pathname === '/' : location.pathname.startsWith(path);

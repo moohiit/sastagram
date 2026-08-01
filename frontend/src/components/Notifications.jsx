@@ -92,7 +92,7 @@ function PushToggle() {
 }
 
 export default function Notifications() {
-  const { notifications, unreadCount } = useSelector(store => store.notification);
+  const { notifications = [], unreadCount = 0 } = useSelector(store => store.notification) || {};
   const { user } = useSelector(store => store.auth);
   const dispatch = useDispatch();
 
