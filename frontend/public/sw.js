@@ -1,5 +1,10 @@
 /* SastaGram service worker — web push only (no caching/offline logic). */
 
+// Take over immediately: without these a deployed sw.js change waits until
+// every tab closes, and the very first page load runs uncontrolled.
+self.addEventListener("install", () => self.skipWaiting());
+self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
+
 self.addEventListener("push", (event) => {
   let payload = {};
   try {

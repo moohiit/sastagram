@@ -26,6 +26,14 @@ function PostPoll({ post }) {
   )
   const [voting, setVoting] = useState(false)
 
+  // Resync when the post prop is replaced (refetched feed, caption edit) —
+  // lazy initializers only run at mount, so stale counts stuck around.
+  useEffect(() => {
+    setCounts((poll?.options || []).map((o) => (o.votes || []).length))
+    setMyOption(initialChoice())
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [post])
+
   // Live updates: counts are public — update whenever this post's poll changes,
   // but keep our own selection state untouched.
   useEffect(() => {
