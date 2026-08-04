@@ -168,6 +168,16 @@ export const getMessage = async (req, res) => {
 // Allowed reaction set — mirrors the frontend picker
 const REACTION_EMOJIS = ["❤️", "😂", "😮", "😢", "👍", "🔥"];
 
+// Everyone allowed to see (and get realtime updates for) a message — the DM
+// pair, or every member of the group conversation.
+const messageParticipants = async (message) => {
+  if (message.conversation) {
+    const group = await Conversation.findById(message.conversation).select("participants");
+    return (group?.participants || []).map((p) => p.toString());
+  }
+  return [message.senderId.toString(), message.recieverId.toString()];
+};
+
 // POST /api/v1/message/:messageId/react { emoji } — toggle/replace the
 // caller's reaction. Same emoji again removes it; a different one replaces it.
 export const reactToMessage = async (req, res) => {
@@ -184,7 +194,7 @@ export const reactToMessage = async (req, res) => {
     if (!message || message.deleted) {
       return res.status(404).json({ success: false, message: "Message not found" });
     }
-    const participants = [message.senderId.toString(), message.recieverId.toString()];
+    const participants = await messageParticipants(message);
     if (!participants.includes(req.id)) {
       return res.status(403).json({ success: false, message: "Not your conversation" });
     }
@@ -229,7 +239,7 @@ export const unsendMessage = async (req, res) => {
     await message.save();
 
     const payload = { messageId: message._id };
-    for (const userId of [message.senderId.toString(), message.recieverId.toString()]) {
+    for (const userId of await messageParticipants(message)) {
       emitToUser(userId, "messageUnsent", payload);
     }
     return res.status(200).json({ success: true, ...payload });
@@ -262,7 +272,8 @@ export const getConversations = async (req, res) => {
   try {
     const myId = new mongoose.Types.ObjectId(req.id);
     const rows = await Message.aggregate([
-      { $match: { $or: [{ senderId: myId }, { recieverId: myId }] } },
+      // conversation:null keeps group messages out of the DM list
+      { $match: { conversation: null, $or: [{ senderId: myId }, { recieverId: myId }] } },
       { $sort: { _id: -1 } },
       {
         $addFields: {
@@ -315,6 +326,218 @@ export const getConversations = async (req, res) => {
       { $unwind: "$user" },
     ]);
     return res.status(200).json({ success: true, conversations: rows });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+// ---------------------------------------------------------------------------
+// Group chats
+// ---------------------------------------------------------------------------
+
+const GROUP_NAME_MAX = 60;
+const GROUP_MAX_MEMBERS = 50;
+
+const loadGroupForMember = async (groupId, userId) => {
+  if (!mongoose.isValidObjectId(groupId)) return { error: [400, "Invalid group id"] };
+  const group = await Conversation.findOne({ _id: groupId, isGroup: true });
+  if (!group) return { error: [404, "Group not found"] };
+  if (!group.participants.some((p) => p.toString() === userId)) {
+    return { error: [403, "You are not a member of this group"] };
+  }
+  return { group };
+};
+
+// POST /api/v1/message/group { name, participantIds: [] }
+export const createGroup = async (req, res) => {
+  try {
+    const { name, participantIds } = req.body || {};
+    if (typeof name !== "string" || !name.trim() || name.trim().length > GROUP_NAME_MAX) {
+      return res.status(400).json({ success: false, message: `Group name is required (max ${GROUP_NAME_MAX} characters)` });
+    }
+    if (!Array.isArray(participantIds) || participantIds.length < 2) {
+      return res.status(400).json({ success: false, message: "Pick at least 2 people" });
+    }
+    const ids = [...new Set(participantIds.map(String))].filter(
+      (id) => mongoose.isValidObjectId(id) && id !== req.id
+    );
+    if (ids.length < 2) {
+      return res.status(400).json({ success: false, message: "Pick at least 2 other people" });
+    }
+    if (ids.length + 1 > GROUP_MAX_MEMBERS) {
+      return res.status(400).json({ success: false, message: `Groups are capped at ${GROUP_MAX_MEMBERS} members` });
+    }
+    const found = await User.countDocuments({ _id: { $in: ids } });
+    if (found !== ids.length) {
+      return res.status(404).json({ success: false, message: "Some users were not found" });
+    }
+    const group = await Conversation.create({
+      isGroup: true,
+      name: name.trim(),
+      admin: req.id,
+      participants: [req.id, ...ids],
+    });
+    const populated = await group.populate("participants", "username profilePicture");
+    for (const member of populated.participants) {
+      emitToUser(member._id.toString(), "groupCreated", { group: populated });
+    }
+    return res.status(201).json({ success: true, group: populated });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+// GET /api/v1/message/group — my groups with last-message preview
+export const getGroups = async (req, res) => {
+  try {
+    const groups = await Conversation.find({ isGroup: true, participants: req.id })
+      .sort({ updatedAt: -1 })
+      .limit(100)
+      .populate("participants", "username profilePicture")
+      .lean();
+    const lastMessages = await Message.aggregate([
+      { $match: { conversation: { $in: groups.map((g) => g._id) } } },
+      { $sort: { _id: -1 } },
+      { $group: { _id: "$conversation", message: { $first: "$message" }, senderId: { $first: "$senderId" }, createdAt: { $first: "$createdAt" }, deleted: { $first: "$deleted" } } },
+    ]);
+    const lastByGroup = new Map(lastMessages.map((m) => [m._id.toString(), m]));
+    const payload = groups.map((g) => {
+      const last = lastByGroup.get(g._id.toString());
+      const { messages, ...rest } = g;
+      return {
+        ...rest,
+        lastMessage: last ? (last.deleted ? "Message unsent" : last.message) : "",
+        lastMessageAt: last?.createdAt || g.updatedAt,
+        lastSenderId: last?.senderId || null,
+      };
+    });
+    return res.status(200).json({ success: true, groups: payload });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+// POST /api/v1/message/group/:groupId/send { message }
+export const sendGroupMessage = async (req, res) => {
+  try {
+    const { group, error } = await loadGroupForMember(req.params.groupId, req.id);
+    if (error) return res.status(error[0]).json({ success: false, message: error[1] });
+    const { message } = req.body || {};
+    if (!(message && message.trim())) {
+      return res.status(400).json({ success: false, message: "Message text is required" });
+    }
+    const newMessage = await Message.create({
+      senderId: req.id,
+      conversation: group._id,
+      message: message.trim(),
+    });
+    await Conversation.updateOne(
+      { _id: group._id },
+      { $push: { messages: newMessage._id } }
+    );
+    await newMessage.populate("senderId", "username profilePicture");
+    for (const member of group.participants) {
+      emitToUser(member.toString(), "newGroupMessage", {
+        conversationId: group._id,
+        message: newMessage,
+      });
+    }
+    return res.status(201).json({ success: true, newMessage });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+// GET /api/v1/message/group/:groupId?limit=&before= — paginated history
+export const getGroupMessages = async (req, res) => {
+  try {
+    const { group, error } = await loadGroupForMember(req.params.groupId, req.id);
+    if (error) return res.status(error[0]).json({ success: false, message: error[1] });
+    const limit = Math.min(parseInt(req.query.limit, 10) || 30, 100);
+    const { before } = req.query;
+    const query = { conversation: group._id };
+    if (before) {
+      if (!mongoose.isValidObjectId(before)) {
+        return res.status(400).json({ success: false, message: "Invalid cursor" });
+      }
+      query._id = { $lt: before };
+    }
+    const page = await Message.find(query)
+      .sort({ _id: -1 })
+      .limit(limit + 1)
+      .populate("senderId", "username profilePicture");
+    const hasMore = page.length > limit;
+    if (hasMore) page.pop();
+    page.reverse();
+    return res.status(200).json({
+      success: true,
+      messages: page,
+      prevCursor: hasMore ? page[0]._id : null,
+      group: await group.populate("participants", "username profilePicture"),
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+// POST /api/v1/message/group/:groupId/members { userId } — admin only
+export const addGroupMember = async (req, res) => {
+  try {
+    const { group, error } = await loadGroupForMember(req.params.groupId, req.id);
+    if (error) return res.status(error[0]).json({ success: false, message: error[1] });
+    if (group.admin.toString() !== req.id) {
+      return res.status(403).json({ success: false, message: "Only the admin can add members" });
+    }
+    const { userId } = req.body || {};
+    if (!mongoose.isValidObjectId(userId)) {
+      return res.status(400).json({ success: false, message: "Invalid user id" });
+    }
+    if (!(await User.exists({ _id: userId }))) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+    if (group.participants.length >= GROUP_MAX_MEMBERS) {
+      return res.status(400).json({ success: false, message: `Groups are capped at ${GROUP_MAX_MEMBERS} members` });
+    }
+    await Conversation.updateOne(
+      { _id: group._id },
+      { $addToSet: { participants: userId } }
+    );
+    emitToUser(userId, "groupCreated", {
+      group: await Conversation.findById(group._id).populate("participants", "username profilePicture"),
+    });
+    return res.status(200).json({ success: true, message: "Member added" });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+// DELETE /api/v1/message/group/:groupId/members/me — leave; the admin role
+// passes to the longest-standing member, and an empty group is deleted.
+export const leaveGroup = async (req, res) => {
+  try {
+    const { group, error } = await loadGroupForMember(req.params.groupId, req.id);
+    if (error) return res.status(error[0]).json({ success: false, message: error[1] });
+    const remaining = group.participants.filter((p) => p.toString() !== req.id);
+    if (remaining.length === 0) {
+      await Message.deleteMany({ conversation: group._id });
+      await Conversation.deleteOne({ _id: group._id });
+    } else {
+      const update = { $pull: { participants: req.id } };
+      if (group.admin.toString() === req.id) {
+        update.$set = { admin: remaining[0] };
+      }
+      await Conversation.updateOne({ _id: group._id }, update);
+      for (const member of remaining) {
+        emitToUser(member.toString(), "groupUpdated", { conversationId: group._id });
+      }
+    }
+    return res.status(200).json({ success: true, message: "Left group" });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ success: false, message: "Internal server error" });

@@ -77,6 +77,10 @@ const browserRouter = createBrowserRouter([
         element: <RequireAuth><Chat /></RequireAuth>
       },
       {
+        path: "/chat/group/:groupId",
+        element: <RequireAuth><Chat /></RequireAuth>
+      },
+      {
         path: "/chat/:id",
         element: <RequireAuth><Chat /></RequireAuth>
       },

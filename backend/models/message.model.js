@@ -10,7 +10,15 @@ const messageSchema = new mongoose.Schema(
     recieverId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      // Direct messages only — group messages carry `conversation` instead
+      required: function () {
+        return !this.conversation;
+      },
+    },
+    // Set for group messages (ref to a group Conversation)
+    conversation: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Conversation",
     },
     message: {
       type: String,
@@ -51,5 +59,6 @@ messageSchema.pre("validate", function (next) {
 });
 
 messageSchema.index({ senderId: 1, recieverId: 1 });
+messageSchema.index({ conversation: 1, _id: -1 });
 
 export const Message = mongoose.model("Message", messageSchema);
