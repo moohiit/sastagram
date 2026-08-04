@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+import { toast } from 'sonner';
 import { useSelector } from 'react-redux';
-import { Link, useParams } from 'react-router-dom';
-import { Bookmark, Grid3x3 } from 'lucide-react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Bookmark, Grid3x3, Lock, Settings as SettingsIcon, ShieldOff } from 'lucide-react';
 import useGetUserProfile from '@/hooks/useGetUserProfile';
 import useRequireLogin from '@/hooks/useRequireLogin';
 import { cdn } from '@/lib/cdn';
@@ -16,7 +18,20 @@ const Profile = () => {
   useGetUserProfile(userId);
   const { userProfile, user } = useSelector(store => store.auth);
   const requireLogin = useRequireLogin();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('posts');
+
+  const blockHandler = async () => {
+    if (!requireLogin()) return;
+    if (!window.confirm(`Block @${userProfile?.username}? They won't be able to find your profile, follow you, or message you.`)) return;
+    try {
+      await axios.post(`/api/v1/user/block/${userId}`, {}, { withCredentials: true });
+      toast.success('User blocked');
+      navigate('/');
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Could not block user');
+    }
+  };
 
   const isOwnProfile = user?._id === userId;
   // Show the skeleton until the profile for THIS route param is in the store
@@ -33,7 +48,7 @@ const Profile = () => {
     activeTab === 'saved' && isOwnProfile ? userProfile.bookmarks : userProfile.posts;
 
   const stats = [
-    { label: 'posts', count: userProfile.posts?.length ?? 0 },
+    { label: 'posts', count: userProfile.restricted ? userProfile.postsCount ?? 0 : userProfile.posts?.length ?? 0 },
     { label: 'followers', count: userProfile.followersCount ?? userProfile.followers?.length ?? 0, to: `/${userProfile._id}/followers` },
     { label: 'following', count: userProfile.followingCount ?? userProfile.following?.length ?? 0, to: `/${userProfile._id}/following` },
   ];
@@ -58,14 +73,24 @@ const Profile = () => {
           <div className='flex flex-wrap items-center gap-x-4 gap-y-2'>
             <h1 className='truncate text-xl text-gray-100'>{userProfile.username}</h1>
             {isOwnProfile ? (
-              <Link to='/profile/edit'>
-                <Button variant='secondary' className='h-8 font-semibold'>
-                  Edit profile
-                </Button>
-              </Link>
+              <div className='flex items-center gap-2'>
+                <Link to='/profile/edit'>
+                  <Button variant='secondary' className='h-8 font-semibold'>
+                    Edit profile
+                  </Button>
+                </Link>
+                <Link to='/settings' title='Settings' aria-label='Settings'>
+                  <Button variant='secondary' className='h-8 px-2'>
+                    <SettingsIcon size={16} />
+                  </Button>
+                </Link>
+              </div>
             ) : (
               <div className='flex items-center gap-2'>
-                <FollowButton userId={userProfile._id} />
+                <FollowButton
+                  userId={userProfile._id}
+                  initialRequested={Boolean(userProfile.requestedByMe)}
+                />
                 <Link
                   to={`/chat/${userProfile._id}`}
                   onClick={(e) => {
@@ -76,6 +101,17 @@ const Profile = () => {
                     Message
                   </Button>
                 </Link>
+                {user && (
+                  <Button
+                    variant='secondary'
+                    title='Block user'
+                    aria-label='Block user'
+                    className='h-8 px-2 text-red-500'
+                    onClick={blockHandler}
+                  >
+                    <ShieldOff size={16} />
+                  </Button>
+                )}
               </div>
             )}
           </div>
@@ -145,10 +181,20 @@ const Profile = () => {
       </div>
 
       <div className='pb-8'>
-        <PostsGrid
-          posts={postsToDisplay}
-          emptyText={activeTab === 'saved' ? 'No saved posts yet' : 'No posts yet'}
-        />
+        {userProfile.restricted ? (
+          <div className='flex flex-col items-center gap-2 py-14 text-center'>
+            <div className='rounded-full border border-zinc-700 p-4'>
+              <Lock size={28} className='text-gray-100' />
+            </div>
+            <p className='text-sm font-semibold text-gray-100'>This account is private</p>
+            <p className='text-sm text-zinc-400'>Follow to see their photos.</p>
+          </div>
+        ) : (
+          <PostsGrid
+            posts={postsToDisplay}
+            emptyText={activeTab === 'saved' ? 'No saved posts yet' : 'No posts yet'}
+          />
+        )}
       </div>
     </div>
   );

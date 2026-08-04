@@ -14,6 +14,10 @@ import { isAiEnabled, embedText } from "../utils/gemini.js";
 const MAX_LIMIT = 20;
 const DEFAULT_LIMIT = 10;
 
+// The public API is unauthenticated — private accounts' posts never appear.
+const privateAuthorIds = async () =>
+  (await User.find({ isPrivate: true }).select("_id").lean()).map((u) => u._id);
+
 // Stage 2 (MIGRATION.md): like counts come from the Like collection, batched
 // per page of posts.
 const likeCountsFor = async (posts) => {
@@ -58,6 +62,8 @@ export const listPublicPosts = async (req, res) => {
         .json({ success: false, message: "Invalid cursor" });
     }
     const query = cursor ? { _id: { $lt: cursor } } : {};
+    const privateAuthors = await privateAuthorIds();
+    if (privateAuthors.length) query.author = { $nin: privateAuthors };
 
     const posts = await Post.find(query)
       .sort({ _id: -1 })
@@ -93,8 +99,8 @@ export const getPublicPost = async (req, res) => {
     }
     const post = await Post.findById(id)
       .select("caption image altText likes comments createdAt author")
-      .populate({ path: "author", select: "username profilePicture" });
-    if (!post) {
+      .populate({ path: "author", select: "username profilePicture isPrivate" });
+    if (!post || post.author?.isPrivate) {
       return res
         .status(404)
         .json({ success: false, message: "Post not found" });
@@ -116,8 +122,14 @@ export const getPublicUser = async (req, res) => {
   try {
     const { username } = req.params;
     const user = await User.findOne({ username }).select(
-      "username bio profilePicture posts"
+      "username bio profilePicture posts isPrivate"
     );
+    // Private accounts are invisible to the unauthenticated public API
+    if (user?.isPrivate) {
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
+    }
     if (!user) {
       return res
         .status(404)
@@ -163,7 +175,7 @@ export const searchPublicPosts = async (req, res) => {
     if (isAiEnabled()) {
       try {
         const queryVector = await embedText(q);
-        const posts = await Post.aggregate([
+        let posts = await Post.aggregate([
           {
             $vectorSearch: {
               index: "post_embedding_index",
@@ -180,11 +192,12 @@ export const searchPublicPosts = async (req, res) => {
               localField: "author",
               foreignField: "_id",
               as: "author",
-              pipeline: [{ $project: { username: 1, profilePicture: 1 } }],
+              pipeline: [{ $project: { username: 1, profilePicture: 1, isPrivate: 1 } }],
             },
           },
           { $unwind: { path: "$author", preserveNullAndEmptyArrays: true } },
         ]);
+        posts = posts.filter((p) => !p.author?.isPrivate);
         const likeCounts = await likeCountsFor(posts);
         return res.status(200).json({
           success: true,
@@ -199,7 +212,10 @@ export const searchPublicPosts = async (req, res) => {
 
     // Fallback: case-insensitive caption substring search, newest first
     const safe = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const posts = await Post.find({ caption: { $regex: safe, $options: "i" } })
+    const textQuery = { caption: { $regex: safe, $options: "i" } };
+    const privateAuthors = await privateAuthorIds();
+    if (privateAuthors.length) textQuery.author = { $nin: privateAuthors };
+    const posts = await Post.find(textQuery)
       .sort({ _id: -1 })
       .limit(MAX_LIMIT)
       .select("caption image altText likes comments createdAt author")

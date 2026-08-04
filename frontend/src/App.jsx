@@ -15,6 +15,7 @@ import { setOnlineUsers, addOnlineUser, removeOnlineUser } from './redux/chatSli
 import PostDetail from './components/PostDetail';
 import HashtagPage from './components/HashtagPage';
 import UsernameRedirect from './components/UsernameRedirect';
+import Settings from './components/Settings';
 import { connectSocket, closeSocket } from './lib/socket';
 import { addNotification, setNotifications } from './redux/rtnSlice';
 import axios from 'axios';
@@ -66,6 +67,10 @@ const browserRouter = createBrowserRouter([
       {
         path: "/profile/edit",
         element: <RequireAuth><EditProfile /></RequireAuth>
+      },
+      {
+        path: "/settings",
+        element: <RequireAuth><Settings /></RequireAuth>
       },
       {
         path: "/chat",

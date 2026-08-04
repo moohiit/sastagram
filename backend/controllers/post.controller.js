@@ -5,6 +5,7 @@ import { Post } from "../models/post.model.js";
 import { User } from "../models/user.model.js";
 import { Comment } from "../models/comment.model.js";
 import { Like } from "../models/like.model.js";
+import { Follow } from "../models/follow.model.js";
 import { Notification } from "../models/notification.model.js";
 import { notify } from "../utils/notify.js";
 import { isToxicComment } from "../utils/moderation.js";
@@ -15,6 +16,37 @@ import { io } from "../socket.io/socket.io.js";
 
 const POLL_QUESTION_MAX = 150;
 const POLL_OPTION_MAX = 80;
+
+// Private-account gating for feeds: returns the author ids whose posts this
+// viewer must NOT see (private accounts they don't follow), or null when
+// nothing needs excluding. Private accounts are assumed to be a small set.
+const hiddenAuthorIds = async (viewerId) => {
+  const privateUsers = await User.find({ isPrivate: true }).select("_id").lean();
+  if (!privateUsers.length) return null;
+  const allowed = new Set(viewerId ? [viewerId.toString()] : []);
+  if (viewerId) {
+    const edges = await Follow.find({
+      follower: viewerId,
+      following: { $in: privateUsers.map((u) => u._id) },
+    })
+      .select("following")
+      .lean();
+    for (const e of edges) allowed.add(e.following.toString());
+  }
+  const excluded = privateUsers
+    .map((u) => u._id)
+    .filter((id) => !allowed.has(id.toString()));
+  return excluded.length ? excluded : null;
+};
+
+// May this viewer see posts from `author`? (author may be a doc or an id)
+export const canViewAuthor = async (authorId, viewerId) => {
+  const author = await User.findById(authorId).select("isPrivate");
+  if (!author?.isPrivate) return true;
+  if (viewerId && viewerId.toString() === authorId.toString()) return true;
+  if (!viewerId) return false;
+  return Boolean(await Follow.exists({ follower: viewerId, following: authorId }));
+};
 
 // Stage 2 (MIGRATION.md): like reads come from the Like collection. Replaces
 // each post's embedded likes array with likesCount + likedByMe, batched per
@@ -159,6 +191,8 @@ export const getAllPost = async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid cursor" });
     }
     const query = cursor ? { _id: { $lt: cursor } } : {};
+    const hidden = await hiddenAuthorIds(req.id);
+    if (hidden) query.author = { $nin: hidden };
 
     // Fetch one extra to know whether another page exists. Comments are a
     // capped preview — the full thread is fetched on demand via
@@ -262,6 +296,8 @@ export const getPostsByHashtag = async (req, res) => {
     }
     const query = { hashtags: tag };
     if (cursor) query._id = { $lt: cursor };
+    const hidden = await hiddenAuthorIds(req.id);
+    if (hidden) query.author = { $nin: hidden };
     const posts = await Post.find(query)
       .sort({ _id: -1 })
       .limit(limit + 1)
@@ -297,6 +333,10 @@ export const getPostById = async (req, res) => {
         populate: { path: "author", select: "username profilePicture" },
       });
     if (!post) {
+      return res.status(404).json({ success: false, message: "Post not found" });
+    }
+    // Private authors are only visible to themselves and their followers
+    if (!(await canViewAuthor(post.author._id, req.id))) {
       return res.status(404).json({ success: false, message: "Post not found" });
     }
     const [payload] = await attachLikeInfo([post], req.id);
@@ -825,11 +865,13 @@ export const searchPosts = async (req, res) => {
     if (!q) {
       return res.status(200).json({ success: true, posts: [], mode: "text" });
     }
+    const hidden = await hiddenAuthorIds(req.id);
+    const hiddenSet = hidden ? new Set(hidden.map((id) => id.toString())) : null;
 
     if (isAiEnabled()) {
       try {
         const queryVector = await embedText(q);
-        const posts = await Post.aggregate([
+        let posts = await Post.aggregate([
           {
             $vectorSearch: {
               index: "post_embedding_index",
@@ -851,6 +893,9 @@ export const searchPosts = async (req, res) => {
           },
           { $unwind: { path: "$author", preserveNullAndEmptyArrays: true } },
         ]);
+        if (hiddenSet) {
+          posts = posts.filter((p) => !hiddenSet.has(p.author?._id?.toString()));
+        }
         return res.status(200).json({
           success: true,
           posts: await attachLikeInfo(posts, req.id),
@@ -864,7 +909,9 @@ export const searchPosts = async (req, res) => {
 
     // Fallback: case-insensitive caption substring search, newest first
     const safe = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    const posts = await Post.find({ caption: { $regex: safe, $options: "i" } })
+    const textQuery = { caption: { $regex: safe, $options: "i" } };
+    if (hidden) textQuery.author = { $nin: hidden };
+    const posts = await Post.find(textQuery)
       .sort({ _id: -1 })
       .limit(20)
       .select("-embedding")

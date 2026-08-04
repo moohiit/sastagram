@@ -10,7 +10,15 @@ import {
   getSuggestedUsers,
   login, logout, register,
   searchProfile,
-  
+  changePassword,
+  setPrivacy,
+  getFollowRequests,
+  acceptFollowRequest,
+  declineFollowRequest,
+  blockUser,
+  unblockUser,
+  getBlockedUsers,
+  deleteAccount,
   } from '../controllers/user.controller.js';
 import { isAuthenticated, optionalAuth } from '../middlewares/isAuthenticated.js';
 import upload from '../middlewares/multer.js';
@@ -27,6 +35,15 @@ router.post('/profile/edit', isAuthenticated, upload.single('profilePicture'), e
 router.get('/suggested',isAuthenticated, getSuggestedUsers)
 router.get('/followorunfollow/:id', isAuthenticated, followOrUnfollow);
 router.get('/search/:id', optionalAuth, searchProfile);
+router.post('/password/change', isAuthenticated, changePassword);
+router.patch('/privacy', isAuthenticated, setPrivacy);
+router.get('/follow-requests', isAuthenticated, getFollowRequests);
+router.post('/follow-requests/:id/accept', isAuthenticated, acceptFollowRequest);
+router.post('/follow-requests/:id/decline', isAuthenticated, declineFollowRequest);
+router.post('/block/:id', isAuthenticated, blockUser);
+router.post('/unblock/:id', isAuthenticated, unblockUser);
+router.get('/blocked', isAuthenticated, getBlockedUsers);
+router.delete('/account', isAuthenticated, deleteAccount);
 router.get('/:id/followers', optionalAuth, getFollowers);
 router.get("/:id/following", optionalAuth, getFollowing);
 
