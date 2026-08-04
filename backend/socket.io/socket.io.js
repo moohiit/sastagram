@@ -48,11 +48,6 @@ export const emitToUser = (userId, event, payload) => {
 };
 export const isUserOnline = (userId) => Boolean(localSockets[userId]?.size);
 
-// Back-compat shim for existing callers that only check truthiness before
-// emitting; prefer emitToUser/isUserOnline in new code.
-export const getRecieverSocketId = (recieverId) =>
-  isUserOnline(recieverId) ? userRoom(recieverId) : undefined;
-
 // Authenticate every socket connection with the same JWT cookie the REST API
 // uses. The client-supplied query userId is never trusted.
 io.use((socket, next) => {
@@ -69,32 +64,45 @@ io.use((socket, next) => {
   }
 });
 
-const broadcastOnline = () => {
-  io.emit("getOnlineUsers", Object.keys(localSockets));
-};
-
 io.on("connection", (socket) => {
   const userId = socket.userId;
   socket.join(userRoom(userId));
+  const firstSocket = !localSockets[userId]?.size;
   (localSockets[userId] ||= new Set()).add(socket.id);
-  broadcastOnline();
 
-  // Typing indicators: relay to the target user only, sender identity from JWT
-  socket.on("typing", ({ to }) => {
-    if (to) emitToUser(to, "typing", { from: userId });
-  });
-  socket.on("stopTyping", ({ to }) => {
-    if (to) emitToUser(to, "stopTyping", { from: userId });
-  });
+  // Presence is delta-based: the connecting socket gets one full snapshot,
+  // everyone else only hears about transitions. The old full-list io.emit on
+  // every connect/disconnect was O(users²) payload under churn.
+  socket.emit("getOnlineUsers", Object.keys(localSockets));
+  if (firstSocket) socket.broadcast.emit("userOnline", userId);
+
+  // Typing indicators: relay to the target user only, sender identity from
+  // JWT. Only relayed once a conversation between the pair exists, so
+  // arbitrary users can't paint phantom typing bubbles into strangers' chats.
+  const typingApproved = new Set();
+  const relayTyping = async (event, to) => {
+    if (!to || typeof to !== "string") return;
+    if (!typingApproved.has(to)) {
+      const { Conversation } = await import("../models/conversation.model.js");
+      const exists = await Conversation.exists({
+        participants: { $all: [userId, to] },
+      }).catch(() => null);
+      if (!exists) return;
+      typingApproved.add(to);
+    }
+    emitToUser(to, event, { from: userId });
+  };
+  socket.on("typing", ({ to } = {}) => relayTyping("typing", to));
+  socket.on("stopTyping", ({ to } = {}) => relayTyping("stopTyping", to));
 
   socket.on("disconnect", () => {
     localSockets[userId]?.delete(socket.id);
     if (!localSockets[userId]?.size) {
       delete localSockets[userId];
+      socket.broadcast.emit("userOffline", userId);
       // Best-effort last-active stamp for "Active Xm ago" in DMs
       User.findByIdAndUpdate(userId, { lastActiveAt: new Date() }).catch(() => {});
     }
-    broadcastOnline();
   });
 });
 
