@@ -165,6 +165,80 @@ export const getMessage = async (req, res) => {
 };
 
 
+// Allowed reaction set — mirrors the frontend picker
+const REACTION_EMOJIS = ["❤️", "😂", "😮", "😢", "👍", "🔥"];
+
+// POST /api/v1/message/:messageId/react { emoji } — toggle/replace the
+// caller's reaction. Same emoji again removes it; a different one replaces it.
+export const reactToMessage = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    const { emoji } = req.body || {};
+    if (!mongoose.isValidObjectId(messageId)) {
+      return res.status(400).json({ success: false, message: "Invalid message id" });
+    }
+    if (!REACTION_EMOJIS.includes(emoji)) {
+      return res.status(400).json({ success: false, message: "Invalid reaction" });
+    }
+    const message = await Message.findById(messageId);
+    if (!message || message.deleted) {
+      return res.status(404).json({ success: false, message: "Message not found" });
+    }
+    const participants = [message.senderId.toString(), message.recieverId.toString()];
+    if (!participants.includes(req.id)) {
+      return res.status(403).json({ success: false, message: "Not your conversation" });
+    }
+    const existing = message.reactions.find((r) => r.user.toString() === req.id);
+    if (existing && existing.emoji === emoji) {
+      message.reactions = message.reactions.filter((r) => r.user.toString() !== req.id);
+    } else {
+      message.reactions = [
+        ...message.reactions.filter((r) => r.user.toString() !== req.id),
+        { user: req.id, emoji },
+      ];
+    }
+    await message.save();
+
+    const payload = { messageId: message._id, reactions: message.reactions };
+    for (const userId of participants) emitToUser(userId, "messageReaction", payload);
+    return res.status(200).json({ success: true, ...payload });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+// DELETE /api/v1/message/:messageId — unsend (sender only, soft delete)
+export const unsendMessage = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+    if (!mongoose.isValidObjectId(messageId)) {
+      return res.status(400).json({ success: false, message: "Invalid message id" });
+    }
+    const message = await Message.findById(messageId);
+    if (!message || message.deleted) {
+      return res.status(404).json({ success: false, message: "Message not found" });
+    }
+    if (message.senderId.toString() !== req.id) {
+      return res.status(403).json({ success: false, message: "You can only unsend your own messages" });
+    }
+    message.deleted = true;
+    message.message = "";
+    message.post = undefined;
+    message.reactions = [];
+    await message.save();
+
+    const payload = { messageId: message._id };
+    for (const userId of [message.senderId.toString(), message.recieverId.toString()]) {
+      emitToUser(userId, "messageUnsent", payload);
+    }
+    return res.status(200).json({ success: true, ...payload });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
 // GET /api/v1/message/unread — unread message counts grouped by sender
 export const getUnreadCounts = async (req, res) => {
   try {
