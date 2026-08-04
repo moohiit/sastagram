@@ -406,6 +406,82 @@ export const getPostsByHashtag = async (req, res) => {
   }
 };
 
+// GET /api/v1/post/:id/similar — related posts for the detail page.
+// Vector search over embeddings when AI is enabled; falls back to
+// shared-hashtag posts, then the author's recent posts. Privacy-gated.
+export const getSimilarPosts = async (req, res) => {
+  try {
+    const postId = req.params.id;
+    if (!mongoose.isValidObjectId(postId)) {
+      return res.status(400).json({ success: false, message: "Invalid post id" });
+    }
+    const post = await Post.findById(postId).select("+embedding hashtags author");
+    if (!post || !(await canViewAuthor(post.author, req.id))) {
+      return res.status(404).json({ success: false, message: "Post not found" });
+    }
+    const hidden = await hiddenAuthorIds(req.id);
+    const hiddenSet = hidden ? new Set(hidden.map((id) => id.toString())) : null;
+    const visible = (posts) =>
+      posts.filter(
+        (p) =>
+          p._id.toString() !== postId &&
+          !hiddenSet?.has((p.author?._id ?? p.author).toString())
+      );
+
+    let similar = [];
+    if (isAiEnabled() && Array.isArray(post.embedding) && post.embedding.length) {
+      try {
+        similar = visible(
+          await Post.aggregate([
+            {
+              $vectorSearch: {
+                index: "post_embedding_index",
+                path: "embedding",
+                queryVector: post.embedding,
+                numCandidates: 50,
+                limit: 8,
+              },
+            },
+            { $project: { image: 1, caption: 1, altText: 1, author: 1 } },
+          ])
+        );
+      } catch (error) {
+        console.error("Similar-posts vector search failed:", error.message);
+      }
+    }
+    if (similar.length === 0 && post.hashtags?.length) {
+      similar = visible(
+        await Post.find({ hashtags: { $in: post.hashtags } })
+          .sort({ _id: -1 })
+          .limit(8)
+          .select("image caption altText author")
+          .lean()
+      );
+    }
+    if (similar.length === 0) {
+      similar = visible(
+        await Post.find({ author: post.author })
+          .sort({ _id: -1 })
+          .limit(8)
+          .select("image caption altText author")
+          .lean()
+      );
+    }
+    return res.status(200).json({
+      success: true,
+      posts: similar.slice(0, 6).map((p) => ({
+        _id: p._id,
+        image: p.image,
+        caption: p.caption,
+        altText: p.altText,
+      })),
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
 // GET /api/v1/post/:id — single post (deep links / shared URLs)
 export const getPostById = async (req, res) => {
   try {

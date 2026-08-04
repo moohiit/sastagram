@@ -1,4 +1,4 @@
-import { isAiEnabled, generateFromImage } from "../utils/gemini.js";
+import { isAiEnabled, generateFromImage, generateFromText } from "../utils/gemini.js";
 
 // GET /api/v1/ai/status — lets the frontend show/hide AI features
 export const getAiStatus = (req, res) => {
@@ -40,5 +40,56 @@ export const suggestCaptions = async (req, res) => {
   } catch (error) {
     console.error("AI captions failed:", error.message);
     return res.status(502).json({ success: false, message: "Caption generation failed, try again" });
+  }
+};
+
+// POST /api/v1/ai/replies — smart reply suggestions for a DM thread.
+// Body: { messages: [{ fromMe: boolean, text: string }] } — the most recent
+// few messages, oldest first. Returns 3 short suggestions.
+export const suggestReplies = async (req, res) => {
+  try {
+    if (!isAiEnabled()) {
+      return res.status(503).json({ success: false, message: "AI features are not configured" });
+    }
+    const { messages } = req.body || {};
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return res.status(400).json({ success: false, message: "messages array is required" });
+    }
+    const recent = messages
+      .slice(-8)
+      .filter((m) => m && typeof m.text === "string" && m.text.trim())
+      .map((m) => `${m.fromMe ? "Me" : "Them"}: ${m.text.trim().slice(0, 300)}`);
+    if (recent.length === 0) {
+      return res.status(400).json({ success: false, message: "messages array is required" });
+    }
+    const raw = await generateFromText({
+      prompt:
+        "You suggest quick replies in a casual chat app conversation between friends.\n" +
+        "Conversation (oldest first):\n" +
+        recent.join("\n") +
+        "\n\nWrite exactly 3 short reply options I ('Me') could send next. " +
+        "Casual tone, max 8 words each, emoji allowed, no greetings unless natural.\n" +
+        'Reply with ONLY a JSON array of 3 strings, e.g. ["...","...","..."] — no markdown.',
+      temperature: 0.9,
+      maxOutputTokens: 128,
+    });
+    const jsonText = raw.replace(/```json|```/g, "").trim();
+    let replies;
+    try {
+      replies = JSON.parse(jsonText);
+    } catch {
+      replies = raw
+        .split("\n")
+        .map((l) => l.replace(/^[\d.\-*\s"]+|"$/g, "").trim())
+        .filter(Boolean)
+        .slice(0, 3);
+    }
+    if (!Array.isArray(replies) || replies.length === 0) {
+      return res.status(502).json({ success: false, message: "Could not generate replies" });
+    }
+    return res.status(200).json({ success: true, replies: replies.slice(0, 3).map(String) });
+  } catch (error) {
+    console.error("AI replies failed:", error.message);
+    return res.status(502).json({ success: false, message: "Reply suggestions failed, try again" });
   }
 };

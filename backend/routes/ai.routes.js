@@ -2,7 +2,7 @@ import express from "express";
 import rateLimit from "express-rate-limit";
 import { isAuthenticated } from "../middlewares/isAuthenticated.js";
 import upload from "../middlewares/multer.js";
-import { getAiStatus, suggestCaptions } from "../controllers/ai.controller.js";
+import { getAiStatus, suggestCaptions, suggestReplies } from "../controllers/ai.controller.js";
 
 const router = express.Router();
 
@@ -21,5 +21,6 @@ const aiLimiter = rateLimit({
 
 router.get("/status", getAiStatus);
 router.post("/captions", isAuthenticated, aiLimiter, upload.single("image"), suggestCaptions);
+router.post("/replies", isAuthenticated, aiLimiter, suggestReplies);
 
 export default router;
