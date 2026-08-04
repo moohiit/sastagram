@@ -13,7 +13,7 @@ carry the full list. The fix is dedicated edge collections:
 
 The migration runs in three stages so nothing breaks at any point.
 
-## Stage 1 — Dual-write + backfill (CURRENT)
+## Stage 1 — Dual-write + backfill (DONE)
 
 **Arrays remain authoritative for all reads.** The new collections are purely
 additive:
@@ -79,9 +79,25 @@ Small transient mismatches are possible while traffic is flowing (a request
 between the array write and the dual-write); re-run the check — persistent
 mismatches are fixed by re-running `npm run migrate:social-graph`.
 
-## Stage 2 — Flip reads to the collections
+## Stage 2 — Flip reads to the collections (CURRENT — code shipped)
 
-After the backfill has run and parity checks pass:
+> **Deployment note:** run `npm run migrate:social-graph` and the parity
+> checks BEFORE deploying this code — reads now come from the collections,
+> so un-backfilled historical data would show zero counts.
+
+Implemented:
+
+- Post payloads (`getAllPost`, `getUserPost`, `getPostById`, `searchPosts`,
+  public API) expose `likesCount` + `likedByMe` from the `Like` collection;
+  the embedded `likes` array is no longer shipped.
+- Profile payloads expose `followersCount` / `followingCount`; login and
+  `/me` build the id arrays from the `Follow` collection.
+- `getFollowers` / `getFollowing` cursor-paginate the `Follow` collection.
+- `followOrUnfollow`, story feed, story-seen checks, and suggested users all
+  read `Follow` instead of the arrays.
+- Dual-writes to the arrays remain in place — that is the rollback path.
+
+Original checklist:
 
 - Like counts and "liked by me": `Like.countDocuments({ post })` /
   `Like.exists({ user, post })` instead of reading `post.likes`.

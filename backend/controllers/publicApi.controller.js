@@ -1,6 +1,8 @@
 import mongoose from "mongoose";
 import { Post } from "../models/post.model.js";
 import { User } from "../models/user.model.js";
+import { Like } from "../models/like.model.js";
+import { Follow } from "../models/follow.model.js";
 import { isAiEnabled, embedText } from "../utils/gemini.js";
 
 // Public, unauthenticated read-only API (/api/public/v1).
@@ -12,14 +14,24 @@ import { isAiEnabled, embedText } from "../utils/gemini.js";
 const MAX_LIMIT = 20;
 const DEFAULT_LIMIT = 10;
 
+// Stage 2 (MIGRATION.md): like counts come from the Like collection, batched
+// per page of posts.
+const likeCountsFor = async (posts) => {
+  const rows = await Like.aggregate([
+    { $match: { post: { $in: posts.map((p) => p._id) } } },
+    { $group: { _id: "$post", n: { $sum: 1 } } },
+  ]);
+  return new Map(rows.map((r) => [r._id.toString(), r.n]));
+};
+
 // Shared mapper: works for populated mongoose docs and plain aggregate
 // results alike. Only ever exposes counts, never the underlying id arrays.
-export const toPublicPost = (post) => ({
+export const toPublicPost = (post, likeCounts) => ({
   id: post._id.toString(),
   caption: post.caption ?? "",
   image: post.image,
   altText: post.altText ?? "",
-  likeCount: Array.isArray(post.likes) ? post.likes.length : 0,
+  likeCount: likeCounts?.get(post._id.toString()) ?? 0,
   commentCount: Array.isArray(post.comments) ? post.comments.length : 0,
   createdAt: post.createdAt,
   author: post.author
@@ -56,9 +68,10 @@ export const listPublicPosts = async (req, res) => {
     const hasMore = posts.length > limit;
     if (hasMore) posts.pop();
 
+    const likeCounts = await likeCountsFor(posts);
     return res.status(200).json({
       success: true,
-      posts: posts.map(toPublicPost),
+      posts: posts.map((p) => toPublicPost(p, likeCounts)),
       nextCursor: hasMore ? posts[posts.length - 1]._id : null,
     });
   } catch (error) {
@@ -86,7 +99,10 @@ export const getPublicPost = async (req, res) => {
         .status(404)
         .json({ success: false, message: "Post not found" });
     }
-    return res.status(200).json({ success: true, post: toPublicPost(post) });
+    const likeCounts = await likeCountsFor([post]);
+    return res
+      .status(200)
+      .json({ success: true, post: toPublicPost(post, likeCounts) });
   } catch (error) {
     console.error(error);
     return res
@@ -100,13 +116,18 @@ export const getPublicUser = async (req, res) => {
   try {
     const { username } = req.params;
     const user = await User.findOne({ username }).select(
-      "username bio profilePicture posts followers following"
+      "username bio profilePicture posts"
     );
     if (!user) {
       return res
         .status(404)
         .json({ success: false, message: "User not found" });
     }
+    // Stage 2: follower counts from the Follow collection
+    const [followers, following] = await Promise.all([
+      Follow.countDocuments({ following: user._id }),
+      Follow.countDocuments({ follower: user._id }),
+    ]);
     return res.status(200).json({
       success: true,
       user: {
@@ -115,8 +136,8 @@ export const getPublicUser = async (req, res) => {
         profilePicture: user.profilePicture ?? "",
         counts: {
           posts: user.posts.length,
-          followers: user.followers.length,
-          following: user.following.length,
+          followers,
+          following,
         },
       },
     });
@@ -164,9 +185,10 @@ export const searchPublicPosts = async (req, res) => {
           },
           { $unwind: { path: "$author", preserveNullAndEmptyArrays: true } },
         ]);
+        const likeCounts = await likeCountsFor(posts);
         return res.status(200).json({
           success: true,
-          posts: posts.map(toPublicPost),
+          posts: posts.map((p) => toPublicPost(p, likeCounts)),
           mode: "semantic",
         });
       } catch (error) {
@@ -182,9 +204,10 @@ export const searchPublicPosts = async (req, res) => {
       .limit(MAX_LIMIT)
       .select("caption image altText likes comments createdAt author")
       .populate({ path: "author", select: "username profilePicture" });
+    const likeCounts = await likeCountsFor(posts);
     return res.status(200).json({
       success: true,
-      posts: posts.map(toPublicPost),
+      posts: posts.map((p) => toPublicPost(p, likeCounts)),
       mode: "text",
     });
   } catch (error) {

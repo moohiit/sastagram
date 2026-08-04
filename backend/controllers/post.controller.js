@@ -15,6 +15,31 @@ import { io } from "../socket.io/socket.io.js";
 const POLL_QUESTION_MAX = 150;
 const POLL_OPTION_MAX = 80;
 
+// Stage 2 (MIGRATION.md): like reads come from the Like collection. Replaces
+// each post's embedded likes array with likesCount + likedByMe, batched per
+// page. Works on mongoose docs and plain aggregate results alike.
+const attachLikeInfo = async (posts, viewerId) => {
+  const ids = posts.map((p) => p._id);
+  const [countRows, mine] = await Promise.all([
+    Like.aggregate([
+      { $match: { post: { $in: ids } } },
+      { $group: { _id: "$post", n: { $sum: 1 } } },
+    ]),
+    viewerId
+      ? Like.find({ user: viewerId, post: { $in: ids } }).select("post").lean()
+      : [],
+  ]);
+  const countMap = new Map(countRows.map((r) => [r._id.toString(), r.n]));
+  const mineSet = new Set(mine.map((l) => l.post.toString()));
+  return posts.map((p) => {
+    const obj = typeof p.toObject === "function" ? p.toObject() : { ...p };
+    delete obj.likes;
+    obj.likesCount = countMap.get(p._id.toString()) || 0;
+    obj.likedByMe = mineSet.has(p._id.toString());
+    return obj;
+  });
+};
+
 // Parse + validate the optional poll fields from a multipart body.
 // Returns { poll } (undefined when no poll was sent) or { error } for a 400.
 const parsePollInput = (pollQuestion, pollOptions) => {
@@ -137,6 +162,7 @@ export const getAllPost = async (req, res) => {
     const posts = await Post.find(query)
       .sort({ _id: -1 })
       .limit(limit + 1)
+      .select("-embedding")
       .populate({
         path: "author",
         select: "username profilePicture",
@@ -159,9 +185,8 @@ export const getAllPost = async (req, res) => {
       { $group: { _id: "$post", n: { $sum: 1 } } },
     ]);
     const countMap = new Map(countRows.map((r) => [r._id.toString(), r.n]));
-    const payload = posts.map((p) => {
-      const obj = p.toObject();
-      obj.commentsCount = countMap.get(p._id.toString()) || 0;
+    const payload = (await attachLikeInfo(posts, req.id)).map((obj) => {
+      obj.commentsCount = countMap.get(obj._id.toString()) || 0;
       return obj;
     });
 
@@ -194,17 +219,19 @@ export const getUserPost = async (req, res) => {
     const userPosts = await Post.find(query)
       .sort({ _id: -1 })
       .limit(limit + 1)
+      .select("-embedding")
       .populate({
         path: "author",
         select: "username profilePicture",
       });
     const hasMore = userPosts.length > limit;
     if (hasMore) userPosts.pop();
+    const payload = await attachLikeInfo(userPosts, req.id);
     return res.status(200).json({
       message: "Posts fetched successfully",
       success: true,
-      posts: userPosts,
-      nextCursor: hasMore ? userPosts[userPosts.length - 1]._id : null,
+      posts: payload,
+      nextCursor: hasMore ? payload[payload.length - 1]._id : null,
     });
   } catch (error) {
     console.log(error);
@@ -233,7 +260,8 @@ export const getPostById = async (req, res) => {
     if (!post) {
       return res.status(404).json({ success: false, message: "Post not found" });
     }
-    return res.status(200).json({ success: true, post });
+    const [payload] = await attachLikeInfo([post], req.id);
+    return res.status(200).json({ success: true, post: payload });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ success: false, message: "Internal server error" });
@@ -688,7 +716,11 @@ export const searchPosts = async (req, res) => {
           },
           { $unwind: { path: "$author", preserveNullAndEmptyArrays: true } },
         ]);
-        return res.status(200).json({ success: true, posts, mode: "semantic" });
+        return res.status(200).json({
+          success: true,
+          posts: await attachLikeInfo(posts, req.id),
+          mode: "semantic",
+        });
       } catch (error) {
         // Fall through to text search (e.g. no Atlas vector index, API error)
         console.error("Semantic search failed, falling back to text:", error.message);
@@ -700,8 +732,13 @@ export const searchPosts = async (req, res) => {
     const posts = await Post.find({ caption: { $regex: safe, $options: "i" } })
       .sort({ _id: -1 })
       .limit(20)
+      .select("-embedding")
       .populate({ path: "author", select: "username profilePicture" });
-    return res.status(200).json({ success: true, posts, mode: "text" });
+    return res.status(200).json({
+      success: true,
+      posts: await attachLikeInfo(posts, req.id),
+      mode: "text",
+    });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ success: false, message: "Internal server error" });

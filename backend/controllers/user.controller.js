@@ -1,4 +1,5 @@
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 import { User } from "../models/user.model.js";
 import bcrypt from "bcryptjs";
 import getDataUri from "../utils/datauri.js";
@@ -6,6 +7,17 @@ import cloudinary from "../utils/cloudinary.js";
 import { Post } from "../models/post.model.js";
 import { Follow } from "../models/follow.model.js";
 import { notify } from "../utils/notify.js";
+
+// Stage 2 (see MIGRATION.md): reads come from the Follow collection; the
+// embedded arrays are still dual-written as the rollback path.
+export const getFollowerIds = async (userId) =>
+  (await Follow.find({ following: userId }).select("follower").lean()).map(
+    (e) => e.follower
+  );
+export const getFollowingIds = async (userId) =>
+  (await Follow.find({ follower: userId }).select("following").lean()).map(
+    (e) => e.following
+  );
 
 //register Controller
 export const register = async (req, res) => {
@@ -107,10 +119,15 @@ export const login = async (req, res) => {
       });
     }
 
-    // Single query instead of one findById per post (N+1)
-    const populatedPosts = await Post.find({ author: user._id })
-      .sort({ _id: -1 })
-      .populate({ path: "author", select: "username profilePicture" });
+    // Single query instead of one findById per post (N+1). Social graph is
+    // read from the Follow collection (Stage 2).
+    const [populatedPosts, followers, following] = await Promise.all([
+      Post.find({ author: user._id })
+        .sort({ _id: -1 })
+        .populate({ path: "author", select: "username profilePicture" }),
+      getFollowerIds(user._id),
+      getFollowingIds(user._id),
+    ]);
 
     user = {
       _id: user._id,
@@ -118,8 +135,8 @@ export const login = async (req, res) => {
       email: user.email,
       profilePicture: user.profilePicture,
       bio: user.bio,
-      followers: user.followers,
-      following: user.following,
+      followers,
+      following,
       posts: populatedPosts,
       bookmarks: user.bookmarks,
     };
@@ -169,19 +186,32 @@ export const getProfile = async (req, res) => {
   try {
     const userId = req.params.id;
     const isOwnProfile = userId === req.id;
-    // Email is private — only returned on your own profile
+    // Email is private — only returned on your own profile. Follower data
+    // comes from the Follow collection (Stage 2) as counts, not arrays.
     let query = User.findById(userId)
       .populate({
         path: "posts",
         options: { sort: { createdAt: -1 } },
       })
-      .select(isOwnProfile ? "-password" : "-password -email");
+      .select(
+        isOwnProfile
+          ? "-password -followers -following"
+          : "-password -email -followers -following"
+      );
     // Bookmarks are private — only include them on your own profile
     if (isOwnProfile) query = query.populate("bookmarks");
     const user = await query;
     if (user && !isOwnProfile) user.bookmarks = undefined;
+    let payload = user;
+    if (user) {
+      const [followersCount, followingCount] = await Promise.all([
+        Follow.countDocuments({ following: user._id }),
+        Follow.countDocuments({ follower: user._id }),
+      ]);
+      payload = { ...user.toObject(), followersCount, followingCount };
+    }
     return res.status(200).json({
-      user,
+      user: payload,
       success: true,
     });
   } catch (error) {
@@ -201,11 +231,19 @@ export const searchProfile = async (req, res) => {
         path: "posts",
         options: { sort: { createdAt: -1 } },
       })
-      .select("-password -email");
+      .select("-password -email -followers -following");
     // Bookmarks are private — never exposed via username search
     if (user && user._id.toString() !== req.id) user.bookmarks = undefined;
+    let payload = user;
+    if (user) {
+      const [followersCount, followingCount] = await Promise.all([
+        Follow.countDocuments({ following: user._id }),
+        Follow.countDocuments({ follower: user._id }),
+      ]);
+      payload = { ...user.toObject(), followersCount, followingCount };
+    }
     return res.status(200).json({
-      user,
+      user: payload,
       success: true,
     });
   } catch (error) {
@@ -277,22 +315,15 @@ export const editProfile = async (req, res) => {
 // Get suggested User
 export const getSuggestedUsers = async (req, res) => {
   try {
-    // Fetch the logged-in user's following list
-    const user = await User.findById(req.id).select("following");
-
-    if (!user) {
-      return res.status(404).json({
-        message: "User not found",
-        success: false,
-      });
-    }
+    // Following list from the Follow collection (Stage 2)
+    const followingIds = await getFollowingIds(req.id);
 
     // Exclude the logged-in user and the users they are following.
     // Capped + minimal fields — this used to return every user in the DB
     // with all their arrays.
     const limit = Math.min(parseInt(req.query.limit, 10) || 8, 20);
     const suggestedUsers = await User.find({
-      _id: { $nin: [...user.following, req.id] },
+      _id: { $nin: [...followingIds, req.id] },
     })
       .select("username profilePicture bio")
       .limit(limit);
@@ -345,7 +376,13 @@ export const followOrUnfollow = async (req, res) => {
         success: false,
       });
     }
-    const isFollowing = user.following.includes(userToFollowOrUnfollowId);
+    // Stage 2: the Follow collection is the read source of truth
+    const isFollowing = Boolean(
+      await Follow.exists({
+        follower: userId,
+        following: userToFollowOrUnfollowId,
+      })
+    );
     if (isFollowing) {
       // Unfollow the user
       await User.updateOne(
@@ -426,27 +463,36 @@ export const followOrUnfollow = async (req, res) => {
   }
 };
 
-//getFollowers Controller
-export const getFollowers = async (req, res) => {
+// Shared by getFollowers/getFollowing: cursor-paginate the Follow collection
+// (Stage 2 — no more unbounded populate on the embedded arrays).
+const getFollowEdges = async (req, res, edgeField, populateField, responseKey) => {
   try {
-    // user id of user
     const userId = req.params.id;
-    // Fetch the user document to get the followers and following
-    const user = await User.findById(userId)
-      .populate("followers", "username profilePicture bio")
-      .exec();
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
+    if (!mongoose.isValidObjectId(userId)) {
+      return res.status(400).json({ success: false, message: "Invalid user id" });
     }
-
-    // Send the followers and following data as response
+    const userExists = await User.exists({ _id: userId });
+    if (!userExists) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+    const limit = Math.min(parseInt(req.query.limit, 10) || 100, 200);
+    const { cursor } = req.query;
+    if (cursor && !mongoose.isValidObjectId(cursor)) {
+      return res.status(400).json({ success: false, message: "Invalid cursor" });
+    }
+    const query = { [edgeField]: userId };
+    if (cursor) query._id = { $lt: cursor };
+    const edges = await Follow.find(query)
+      .sort({ _id: -1 })
+      .limit(limit + 1)
+      .populate(populateField, "username profilePicture bio");
+    const hasMore = edges.length > limit;
+    if (hasMore) edges.pop();
     return res.status(200).json({
       success: true,
-      followers: user.followers,
-      message: "Following fetched successfully",
+      [responseKey]: edges.map((e) => e[populateField]).filter(Boolean),
+      nextCursor: hasMore ? edges[edges.length - 1]._id : null,
+      message: `${responseKey} fetched successfully`,
     });
   } catch (error) {
     console.log(error);
@@ -456,46 +502,31 @@ export const getFollowers = async (req, res) => {
     });
   }
 };
+
+//getFollowers Controller
+export const getFollowers = (req, res) =>
+  getFollowEdges(req, res, "following", "follower", "followers");
 
 //getFollowing Controller
-export const getFollowing = async (req, res) => {
-  try {
-    // user id of user
-    const userId = req.params.id;
-    // Fetch the user document to get the followers and following
-    const user = await User.findById(userId)
-      .populate("following", "username profilePicture bio")
-      .exec();
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
-    }
-    // console.log("Following fetched successfully:", user.following);
-    // Send the followers and following data as response
-    return res.status(200).json({
-      success: true,
-      following: user.following,
-      message: "Following fetched successfully",
-    });
-  } catch (error) {
-    console.log(error);
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
-  }
-};
+export const getFollowing = (req, res) =>
+  getFollowEdges(req, res, "follower", "following", "following");
 
 // GET /api/v1/user/me — fresh identity for route guarding / session checks
 export const getMe = async (req, res) => {
   try {
-    const user = await User.findById(req.id).select("-password");
+    const user = await User.findById(req.id).select("-password -followers -following");
     if (!user) {
       return res.status(404).json({ message: "User not found", success: false });
     }
-    return res.status(200).json({ success: true, user });
+    // Social graph from the Follow collection (Stage 2)
+    const [followers, following] = await Promise.all([
+      getFollowerIds(user._id),
+      getFollowingIds(user._id),
+    ]);
+    return res.status(200).json({
+      success: true,
+      user: { ...user.toObject(), followers, following },
+    });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ success: false, message: "Internal server error" });
