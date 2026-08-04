@@ -96,13 +96,15 @@ export default function Notifications() {
   const { user } = useSelector(store => store.auth);
   const dispatch = useDispatch();
 
-  // Opening the notifications page marks everything read
+  // Marks everything read while the page is open — including notifications
+  // that arrive live (the old mount-only effect closed over the initial count
+  // and never cleared the badge for those).
   useEffect(() => {
     if (unreadCount === 0) return;
     dispatch(markAllRead());
     axios.patch('/api/v1/notification/read', {}, { withCredentials: true })
       .catch((error) => console.log(error));
-  }, []);
+  }, [unreadCount, dispatch]);
 
   return (
     <div className='w-full max-w-[470px] mx-auto px-4 py-6'>

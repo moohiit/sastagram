@@ -9,6 +9,7 @@ import { setSelectedUser } from '@/redux/authSlice';
 import { setConversations } from '@/redux/chatSlice';
 import useGetUserProfile from '@/hooks/useGetUserProfile';
 import useGetRTM from '@/hooks/useGetRTM';
+import useGetFollowings from '@/hooks/useGetFollowings';
 import ConversationList from './chat/ConversationList';
 import ChatThread from './chat/ChatThread';
 import NewChatDialog from './chat/NewChatDialog';
@@ -28,6 +29,9 @@ function Chat() {
 
   // Live socket subscriptions for the whole page (thread + list updates).
   useGetRTM();
+  // "New message" candidates — previously only Home fetched these, so a hard
+  // reload straight onto /messages showed an empty people list.
+  useGetFollowings();
 
   // Conversation list (sorted by recency, includes unread counts).
   useEffect(() => {
