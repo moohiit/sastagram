@@ -8,6 +8,7 @@ import { Like } from "../models/like.model.js";
 import { Notification } from "../models/notification.model.js";
 import { notify } from "../utils/notify.js";
 import { isToxicComment } from "../utils/moderation.js";
+import { extractHashtags, notifyMentions } from "../utils/textEntities.js";
 import { enrichPostAI } from "../utils/postAI.js";
 import { isAiEnabled, embedText } from "../utils/gemini.js";
 import { io } from "../socket.io/socket.io.js";
@@ -107,6 +108,7 @@ export const addNewPost = async (req, res) => {
       caption,
       image: imageUrl,
       author: authorId,
+      hashtags: extractHashtags(caption),
       poll,
     });
     if (!post) {
@@ -117,6 +119,9 @@ export const addNewPost = async (req, res) => {
     }
     // Atomic $push — a concurrent deletePost's update can't clobber this
     await User.updateOne({ _id: authorId }, { $push: { posts: post._id } });
+
+    // Fire-and-forget @mention notifications from the caption
+    notifyMentions({ text: caption, sender: authorId, post: post._id });
 
     // Fire-and-forget AI enrichment (alt-text + embedding) — deliberately not
     // awaited so upload response time is unchanged; no-op when AI is disabled.
@@ -239,6 +244,39 @@ export const getUserPost = async (req, res) => {
       success: false,
       message: "Internal server error",
     });
+  }
+};
+
+// GET /api/v1/post/tags/:tag — cursor-paginated posts carrying a hashtag
+export const getPostsByHashtag = async (req, res) => {
+  try {
+    const tag = (req.params.tag || "").toLowerCase();
+    if (!/^[\p{L}\p{N}_]{1,50}$/u.test(tag)) {
+      return res.status(400).json({ success: false, message: "Invalid hashtag" });
+    }
+    const limit = Math.min(parseInt(req.query.limit, 10) || 30, 100);
+    const { cursor } = req.query;
+    if (cursor && !mongoose.isValidObjectId(cursor)) {
+      return res.status(400).json({ success: false, message: "Invalid cursor" });
+    }
+    const query = { hashtags: tag };
+    if (cursor) query._id = { $lt: cursor };
+    const posts = await Post.find(query)
+      .sort({ _id: -1 })
+      .limit(limit + 1)
+      .select("-embedding")
+      .populate({ path: "author", select: "username profilePicture" });
+    const hasMore = posts.length > limit;
+    if (hasMore) posts.pop();
+    const payload = await attachLikeInfo(posts, req.id);
+    return res.status(200).json({
+      success: true,
+      posts: payload,
+      nextCursor: hasMore ? payload[payload.length - 1]._id : null,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
 
@@ -403,7 +441,7 @@ export const addComment = async (req, res) => {
     post.comments.push(comment._id);
     await post.save();
 
-    // Persisted + realtime notification
+    // Persisted + realtime notification, plus @mention notifications
     await notify({
       recipient: post.author,
       sender: commenterId,
@@ -411,6 +449,7 @@ export const addComment = async (req, res) => {
       post: postId,
       text,
     });
+    notifyMentions({ text, sender: commenterId, post: postId });
     return res.status(201).json({
       message: "Comment added successfully",
       success: true,
@@ -579,6 +618,7 @@ export const editPostCaption = async (req, res) => {
       return res.status(403).json({ message: "You are not authorized to edit this post", success: false });
     }
     post.caption = caption.trim();
+    post.hashtags = extractHashtags(post.caption);
     await post.save();
     return res.status(200).json({ message: "Caption updated", success: true, post });
   } catch (error) {

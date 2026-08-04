@@ -26,6 +26,8 @@ const postSchema = new mongoose.Schema(
     // 768-dim semantic embedding for vector search — never sent in API
     // payloads by default (select: false)
     embedding: { type: [Number], select: false },
+    // Lowercased #tags parsed from the caption (kept in sync on edits)
+    hashtags: { type: [String], default: [] },
     author: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -50,5 +52,6 @@ const postSchema = new mongoose.Schema(
 );
 
 postSchema.index({ author: 1 });
+postSchema.index({ hashtags: 1, _id: -1 });
 
 export const Post = mongoose.model("Post", postSchema);

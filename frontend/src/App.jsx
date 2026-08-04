@@ -13,6 +13,8 @@ import { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { setOnlineUsers, addOnlineUser, removeOnlineUser } from './redux/chatSlice';
 import PostDetail from './components/PostDetail';
+import HashtagPage from './components/HashtagPage';
+import UsernameRedirect from './components/UsernameRedirect';
 import { connectSocket, closeSocket } from './lib/socket';
 import { addNotification, setNotifications } from './redux/rtnSlice';
 import axios from 'axios';
@@ -44,6 +46,14 @@ const browserRouter = createBrowserRouter([
       {
         path: "/post/:id",
         element: <PostDetail />
+      },
+      {
+        path: "/tags/:tag",
+        element: <HashtagPage />
+      },
+      {
+        path: "/u/:username",
+        element: <UsernameRedirect />
       },
       {
         path: "/messages",
