@@ -26,6 +26,12 @@ const isProduction = process.env.NODE_ENV === "production";
 const isTest = process.env.NODE_ENV === "test";
 const __dirname = path.resolve();
 
+// Behind Render's proxy every request arrives from the proxy's socket
+// address; without this, req.ip is the proxy IP and every rate limiter
+// shares a single global bucket (one user's 20 failed logins would lock
+// out everyone).
+if (isProduction) app.set("trust proxy", 1);
+
 //Middlewares
 app.use(helmet({
   contentSecurityPolicy: false, // SPA with external images (Cloudinary, avatars)

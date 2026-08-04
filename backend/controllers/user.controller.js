@@ -62,6 +62,15 @@ export const register = async (req, res) => {
       success: true,
     });
   } catch (error) {
+    // Unique-index race: two concurrent registers can both pass the
+    // existingUser check; the loser's insert fires E11000.
+    if (error?.code === 11000) {
+      const field = Object.keys(error.keyPattern || {})[0] || "Account";
+      return res.status(409).json({
+        message: `${field.charAt(0).toUpperCase() + field.slice(1)} already exists! Try another one`,
+        success: false,
+      });
+    }
     console.error(error);
     return res.status(500).json({
       success: false,
@@ -160,12 +169,13 @@ export const getProfile = async (req, res) => {
   try {
     const userId = req.params.id;
     const isOwnProfile = userId === req.id;
+    // Email is private — only returned on your own profile
     let query = User.findById(userId)
       .populate({
         path: "posts",
         options: { sort: { createdAt: -1 } },
       })
-      .select("-password");
+      .select(isOwnProfile ? "-password" : "-password -email");
     // Bookmarks are private — only include them on your own profile
     if (isOwnProfile) query = query.populate("bookmarks");
     const user = await query;
@@ -191,7 +201,7 @@ export const searchProfile = async (req, res) => {
         path: "posts",
         options: { sort: { createdAt: -1 } },
       })
-      .select("-password");
+      .select("-password -email");
     // Bookmarks are private — never exposed via username search
     if (user && user._id.toString() !== req.id) user.bookmarks = undefined;
     return res.status(200).json({
@@ -212,6 +222,18 @@ export const editProfile = async (req, res) => {
   try {
     const userId = req.id;
     const { bio, gender } = req.body;
+    if (bio !== undefined && (typeof bio !== "string" || bio.length > 300)) {
+      return res.status(400).json({
+        message: "Bio must be a string of at most 300 characters",
+        success: false,
+      });
+    }
+    if (gender !== undefined && !["", "male", "female", "other"].includes(gender)) {
+      return res.status(400).json({
+        message: "Invalid gender value",
+        success: false,
+      });
+    }
     const profilePicture = req.file;
     let cloudResponse;
     if (profilePicture) {
@@ -326,12 +348,14 @@ export const followOrUnfollow = async (req, res) => {
     const isFollowing = user.following.includes(userToFollowOrUnfollowId);
     if (isFollowing) {
       // Unfollow the user
-      await User.findByIdAndUpdate(userId, {
-        $pull: { following: userToFollowOrUnfollowId },
-      });
-      await User.findByIdAndUpdate(userToFollowOrUnfollowId, {
-        $pull: { followers: userId },
-      });
+      await User.updateOne(
+        { _id: userId },
+        { $pull: { following: userToFollowOrUnfollowId } }
+      );
+      await User.updateOne(
+        { _id: userToFollowOrUnfollowId },
+        { $pull: { followers: userId } }
+      );
       // Stage-1 dual-write to the Follow collection (see MIGRATION.md). The
       // arrays stay authoritative — never fail the request on this delete.
       try {
@@ -349,20 +373,27 @@ export const followOrUnfollow = async (req, res) => {
         success: true,
       });
     } else {
-      // Follow the user
-      await User.findByIdAndUpdate(userId, {
-        $push: { following: userToFollowOrUnfollowId },
-      });
-      // Persisted + realtime notification
-      await notify({
-        recipient: userToFollowOrUnfollowId,
-        sender: userId,
-        type: "follow",
-        text: "started following you",
-      });
-      await User.findByIdAndUpdate(userToFollowOrUnfollowId, {
-        $push: { followers: userId },
-      });
+      // Follow the user. $addToSet keeps concurrent duplicate requests
+      // (double-click / retry) from corrupting the arrays; modifiedCount
+      // tells us whether this request actually created the edge, so the
+      // notification fires exactly once.
+      const addResult = await User.updateOne(
+        { _id: userId },
+        { $addToSet: { following: userToFollowOrUnfollowId } }
+      );
+      await User.updateOne(
+        { _id: userToFollowOrUnfollowId },
+        { $addToSet: { followers: userId } }
+      );
+      if (addResult.modifiedCount > 0) {
+        // Persisted + realtime notification
+        await notify({
+          recipient: userToFollowOrUnfollowId,
+          sender: userId,
+          type: "follow",
+          text: "started following you",
+        });
+      }
       // Stage-1 dual-write to the Follow collection (see MIGRATION.md). The
       // arrays stay authoritative — never fail the request on this upsert.
       try {

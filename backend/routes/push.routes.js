@@ -24,6 +24,20 @@ router.post("/subscribe", isAuthenticated, async (req, res) => {
     if (!endpoint || !keys?.p256dh || !keys?.auth) {
       return res.status(400).json({ success: false, message: "Invalid subscription" });
     }
+    // An endpoint already registered to another account may only be re-claimed
+    // by a caller presenting the same browser keys (i.e. the same browser
+    // switching accounts). Knowing an endpoint URL alone must not be enough to
+    // redirect someone else's notifications.
+    const existing = await PushSubscription.findOne({ endpoint });
+    if (
+      existing &&
+      existing.user.toString() !== req.id &&
+      (existing.keys?.p256dh !== keys.p256dh || existing.keys?.auth !== keys.auth)
+    ) {
+      return res
+        .status(403)
+        .json({ success: false, message: "Subscription belongs to another account" });
+    }
     await PushSubscription.findOneAndUpdate(
       { endpoint },
       { user: req.id, endpoint, keys: { p256dh: keys.p256dh, auth: keys.auth } },
