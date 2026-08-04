@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { Notification } from "../models/notification.model.js";
 
 // GET /api/v1/notification?cursor=<id>&limit=20
@@ -6,7 +7,12 @@ export const getNotifications = async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit, 10) || 20, 50);
     const { cursor } = req.query;
     const query = { recipient: req.id };
-    if (cursor) query._id = { $lt: cursor };
+    if (cursor) {
+      if (!mongoose.isValidObjectId(cursor)) {
+        return res.status(400).json({ success: false, message: "Invalid cursor" });
+      }
+      query._id = { $lt: cursor };
+    }
 
     const notifications = await Notification.find(query)
       .sort({ _id: -1 })

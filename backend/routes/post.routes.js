@@ -1,5 +1,5 @@
 import express from "express";
-import { addComment, addNewPost, bookmarkPost, deleteComment, deletePost, dislikePost, editPostCaption, getAllPost, getPostComments, getUserPost, likePost, searchPosts, votePoll } from '../controllers/post.controller.js';
+import { addComment, addNewPost, bookmarkPost, deleteComment, deletePost, dislikePost, editPostCaption, getAllPost, getPostById, getPostComments, getUserPost, likePost, searchPosts, votePoll } from '../controllers/post.controller.js';
 import { isAuthenticated, optionalAuth } from "../middlewares/isAuthenticated.js";
 import Upload from '../middlewares/multer.js';
 
@@ -20,5 +20,7 @@ router.delete('/delete/:id', isAuthenticated, deletePost);
 router.put('/:id/caption', isAuthenticated, editPostCaption);
 router.delete('/comment/:commentId', isAuthenticated, deleteComment);
 router.get('/:id/bookmark', isAuthenticated, bookmarkPost);
+// Keep last — matches any single segment, so it must not shadow routes above
+router.get('/:id', optionalAuth, getPostById);
 
 export default router;
