@@ -1,9 +1,11 @@
+import mongoose from "mongoose";
 import sharp from "sharp";
 import cloudinary from "../utils/cloudinary.js";
 import { Post } from "../models/post.model.js";
 import { User } from "../models/user.model.js";
 import { Comment } from "../models/comment.model.js";
 import { Like } from "../models/like.model.js";
+import { Notification } from "../models/notification.model.js";
 import { notify } from "../utils/notify.js";
 import { isToxicComment } from "../utils/moderation.js";
 import { enrichPostAI } from "../utils/postAI.js";
@@ -46,7 +48,7 @@ export const addNewPost = async (req, res) => {
     if (!image) {
       return res.status(400).json({
         message: "Image required",
-        success: true,
+        success: false,
       });
     }
     // Validate the optional poll before any upload work
@@ -88,16 +90,8 @@ export const addNewPost = async (req, res) => {
         success: false,
       });
     }
-    //Update the user posts
-    const user = await User.findById(authorId);
-    if (!user) {
-      return res.status(500).json({
-        message: "Error finding user",
-        success: false,
-      });
-    }
-    user.posts.push(post._id);
-    await user.save();
+    // Atomic $push — a concurrent deletePost's update can't clobber this
+    await User.updateOne({ _id: authorId }, { $push: { posts: post._id } });
 
     // Fire-and-forget AI enrichment (alt-text + embedding) — deliberately not
     // awaited so upload response time is unchanged; no-op when AI is disabled.
@@ -131,9 +125,15 @@ export const getAllPost = async (req, res) => {
   try {
     const limit = Math.min(parseInt(req.query.limit, 10) || 10, 30);
     const { cursor } = req.query;
+    if (cursor && !mongoose.isValidObjectId(cursor)) {
+      return res.status(400).json({ success: false, message: "Invalid cursor" });
+    }
     const query = cursor ? { _id: { $lt: cursor } } : {};
 
-    // Fetch one extra to know whether another page exists
+    // Fetch one extra to know whether another page exists. Comments are a
+    // capped preview — the full thread is fetched on demand via
+    // GET /:id/comment/all (a post with thousands of comments used to make
+    // every feed page pull all of them).
     const posts = await Post.find(query)
       .sort({ _id: -1 })
       .limit(limit + 1)
@@ -143,7 +143,7 @@ export const getAllPost = async (req, res) => {
       })
       .populate({
         path: "comments",
-        options: { sort: { createdAt: -1 } },
+        options: { sort: { createdAt: -1 }, perDocumentLimit: 3 },
         populate: {
           path: "author",
           select: "username profilePicture",
@@ -153,11 +153,23 @@ export const getAllPost = async (req, res) => {
     const hasMore = posts.length > limit;
     if (hasMore) posts.pop();
 
+    // True comment totals (the populated array above is capped)
+    const countRows = await Comment.aggregate([
+      { $match: { post: { $in: posts.map((p) => p._id) } } },
+      { $group: { _id: "$post", n: { $sum: 1 } } },
+    ]);
+    const countMap = new Map(countRows.map((r) => [r._id.toString(), r.n]));
+    const payload = posts.map((p) => {
+      const obj = p.toObject();
+      obj.commentsCount = countMap.get(p._id.toString()) || 0;
+      return obj;
+    });
+
     return res.status(200).json({
       message: "Posts fetched successfully",
       success: true,
-      posts,
-      nextCursor: hasMore ? posts[posts.length - 1]._id : null,
+      posts: payload,
+      nextCursor: hasMore ? payload[payload.length - 1]._id : null,
     });
   } catch (error) {
     console.error(error);
@@ -168,34 +180,31 @@ export const getAllPost = async (req, res) => {
   }
 };
 
-//Get user posts
+//Get user posts — cursor-paginated (?cursor=<lastPostId>&limit=30)
 export const getUserPost = async (req, res) => {
   try {
     const authorId = req.id;
-    const userPosts = await Post.find({ author: authorId })
-      .sort({ createdAt: -1 })
+    const limit = Math.min(parseInt(req.query.limit, 10) || 30, 100);
+    const { cursor } = req.query;
+    if (cursor && !mongoose.isValidObjectId(cursor)) {
+      return res.status(400).json({ success: false, message: "Invalid cursor" });
+    }
+    const query = { author: authorId };
+    if (cursor) query._id = { $lt: cursor };
+    const userPosts = await Post.find(query)
+      .sort({ _id: -1 })
+      .limit(limit + 1)
       .populate({
         path: "author",
         select: "username profilePicture",
-      })
-      .populate({
-        path: "comments",
-        options: { sort: { createdAt: -1 } },
-        populate: {
-          path: "author",
-          select: "username profilePicture",
-        },
       });
-    if (!userPosts) {
-      return res.status(500).json({
-        message: "Error fetching posts",
-        success: false,
-      });
-    }
+    const hasMore = userPosts.length > limit;
+    if (hasMore) userPosts.pop();
     return res.status(200).json({
       message: "Posts fetched successfully",
       success: true,
       posts: userPosts,
+      nextCursor: hasMore ? userPosts[userPosts.length - 1]._id : null,
     });
   } catch (error) {
     console.log(error);
@@ -203,6 +212,31 @@ export const getUserPost = async (req, res) => {
       success: false,
       message: "Internal server error",
     });
+  }
+};
+
+// GET /api/v1/post/:id — single post (deep links / shared URLs)
+export const getPostById = async (req, res) => {
+  try {
+    const postId = req.params.id;
+    if (!mongoose.isValidObjectId(postId)) {
+      return res.status(400).json({ success: false, message: "Invalid post id" });
+    }
+    const post = await Post.findById(postId)
+      .select("-embedding")
+      .populate({ path: "author", select: "username profilePicture" })
+      .populate({
+        path: "comments",
+        options: { sort: { createdAt: -1 } },
+        populate: { path: "author", select: "username profilePicture" },
+      });
+    if (!post) {
+      return res.status(404).json({ success: false, message: "Post not found" });
+    }
+    return res.status(200).json({ success: true, post });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
 
@@ -218,8 +252,10 @@ export const likePost = async (req, res) => {
         success: false,
       });
     }
-    //like logic (atomic — no extra save needed)
-    await post.updateOne({ $addToSet: { likes: likerId } });
+    //like logic (atomic — no extra save needed). modifiedCount tells us
+    //whether this request actually added the like, so re-likes can't spam
+    //the author with duplicate notifications.
+    const likeResult = await post.updateOne({ $addToSet: { likes: likerId } });
     // Stage-1 dual-write to the Like collection (see MIGRATION.md). The array
     // stays authoritative — never fail the request if this write fails.
     try {
@@ -231,14 +267,16 @@ export const likePost = async (req, res) => {
     } catch (error) {
       console.error("Like dual-write failed:", error);
     }
-    // Persisted + realtime notification (offline users see it on next login)
-    await notify({
-      recipient: post.author,
-      sender: likerId,
-      type: "like",
-      post: postId,
-      text: "liked your post",
-    });
+    if (likeResult.modifiedCount > 0) {
+      // Persisted + realtime notification (offline users see it on next login)
+      await notify({
+        recipient: post.author,
+        sender: likerId,
+        type: "like",
+        post: postId,
+        text: "liked your post",
+      });
+    }
 
     //return response
     return res.status(200).json({
@@ -420,12 +458,26 @@ export const deletePost = async (req, res) => {
       console.error("Cloudinary cleanup failed:", e.message);
     }
 
-    //now also remove post id from user post
-    let user = await User.findById(authorId);
-    user.posts = user.posts.filter((id) => id.toString() !== postId);
-    await user.save();
+    //now also remove post id from user post (atomic — a concurrent addNewPost
+    //$push can't be clobbered by a whole-array $set)
+    await User.updateOne({ _id: authorId }, { $pull: { posts: post._id } });
     //delete the associated comments
     await Comment.deleteMany({ post: postId });
+    //clean up everything else that references the post: Like edges (Stage-2
+    //migration reads would double-count orphans), notifications about it, and
+    //other users' bookmarks (orphans populate as null on their profiles)
+    await Promise.all([
+      Like.deleteMany({ post: post._id }).catch((e) =>
+        console.error("Like cleanup failed:", e.message)
+      ),
+      Notification.deleteMany({ post: post._id }).catch((e) =>
+        console.error("Notification cleanup failed:", e.message)
+      ),
+      User.updateMany(
+        { bookmarks: post._id },
+        { $pull: { bookmarks: post._id } }
+      ).catch((e) => console.error("Bookmark cleanup failed:", e.message)),
+    ]);
 
     //return response
     return res.status(200).json({
@@ -454,33 +506,26 @@ export const bookmarkPost = async (req, res) => {
         success: false,
       });
     }
-    const user = await User.findById(userId);
-    if (user.bookmarks.includes(post._id)) {
-      //already bokmarked -> remove bookmark
-      user.bookmarks.pull(post._id);
-      await user.save();
-      // console.log("Post UnBookmarked");
-
-      return res.status(200).json({
-        type: "unsaved",
-        message: "Post unbookmarked successfully",
-        success: true,
-      });
-    } else {
-      // Bookmark the post
-      //method1
-      user.bookmarks.push(post._id);
-      //method2
-      // user.updateOne({$addToSet:{bookmarks:post._id}})
-      await user.save();
-      // console.log("Post Bookmarked");
-
+    // Toggle atomically — $addToSet's modifiedCount says whether it was
+    // added; if not, it was already bookmarked and we remove it. No
+    // read-modify-write, so concurrent requests can't clobber the array.
+    const added = await User.updateOne(
+      { _id: userId },
+      { $addToSet: { bookmarks: post._id } }
+    );
+    if (added.modifiedCount > 0) {
       return res.status(200).json({
         type: "saved",
         message: "Post bookmarked successfully",
         success: true,
       });
     }
+    await User.updateOne({ _id: userId }, { $pull: { bookmarks: post._id } });
+    return res.status(200).json({
+      type: "unsaved",
+      message: "Post unbookmarked successfully",
+      success: true,
+    });
   } catch (error) {
     console.log("Error");
     console.log(error);
@@ -559,15 +604,38 @@ export const votePoll = async (req, res) => {
       return res.status(400).json({ message: "Invalid poll option", success: false });
     }
 
-    // Remove any previous vote across all options, then add the new one
-    await Post.updateOne(
-      { _id: postId },
-      { $pull: { "poll.options.$[].votes": voterId } }
-    );
-    await Post.updateOne(
-      { _id: postId },
-      { $addToSet: { [`poll.options.${index}.votes`]: voterId } }
-    );
+    // Single pipeline update: remove the voter from every option and add them
+    // to the chosen one in one atomic write, so a concurrent vote can't land
+    // between the pull and the add (which could drop a vote entirely).
+    const voterObjectId = new mongoose.Types.ObjectId(voterId);
+    await Post.updateOne({ _id: postId, poll: { $exists: true } }, [
+      {
+        $set: {
+          "poll.options": {
+            $map: {
+              input: { $range: [0, { $size: "$poll.options" }] },
+              as: "i",
+              in: {
+                $let: {
+                  vars: { opt: { $arrayElemAt: ["$poll.options", "$$i"] } },
+                  in: {
+                    _id: "$$opt._id",
+                    text: "$$opt.text",
+                    votes: {
+                      $cond: [
+                        { $eq: ["$$i", index] },
+                        { $setUnion: ["$$opt.votes", [voterObjectId]] },
+                        { $setDifference: ["$$opt.votes", [voterObjectId]] },
+                      ],
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    ]);
 
     const updated = await Post.findById(postId).select("poll");
     const counts = updated.poll.options.map((o) => o.votes.length);
