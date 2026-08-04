@@ -34,8 +34,8 @@ const Profile = () => {
 
   const stats = [
     { label: 'posts', count: userProfile.posts?.length ?? 0 },
-    { label: 'followers', count: userProfile.followers?.length ?? 0, to: `/${userProfile._id}/followers` },
-    { label: 'following', count: userProfile.following?.length ?? 0, to: `/${userProfile._id}/following` },
+    { label: 'followers', count: userProfile.followersCount ?? userProfile.followers?.length ?? 0, to: `/${userProfile._id}/followers` },
+    { label: 'following', count: userProfile.followingCount ?? userProfile.following?.length ?? 0, to: `/${userProfile._id}/following` },
   ];
 
   const tabClass = isActive =>

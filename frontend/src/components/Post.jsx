@@ -28,8 +28,11 @@ function Post({ post }) {
   const [editOpen, setEditOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
-  const [liked, setLiked] = useState(post.likes.includes(user?._id))
-  const [likeCount, setLikeCount] = useState(post.likes.length)
+  // Stage 2 API shape (likedByMe/likesCount) with legacy likes-array fallback
+  const [liked, setLiked] = useState(
+    post.likedByMe ?? post.likes?.includes(user?._id) ?? false
+  )
+  const [likeCount, setLikeCount] = useState(post.likesCount ?? post.likes?.length ?? 0)
   const [popping, setPopping] = useState(false)
   const [burstKey, setBurstKey] = useState(0)
   const [showBurst, setShowBurst] = useState(false)

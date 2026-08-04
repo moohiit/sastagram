@@ -80,7 +80,7 @@ function Explore() {
               <div className='absolute inset-0 hidden md:flex items-center justify-center gap-6 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity'>
                 <span className='flex items-center gap-1.5 text-white text-sm font-semibold'>
                   <Heart size={20} fill='currentColor' />
-                  {post.likes?.length ?? 0}
+                  {post.likesCount ?? post.likes?.length ?? 0}
                 </span>
                 <span className='flex items-center gap-1.5 text-white text-sm font-semibold'>
                   <MessageCircle size={20} fill='currentColor' />

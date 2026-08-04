@@ -4,6 +4,7 @@ import mongoose from 'mongoose';
 import app from '../app.js';
 import { Post } from '../models/post.model.js';
 import { Comment } from '../models/comment.model.js';
+import { Like } from '../models/like.model.js';
 import { createUserAndLogin } from './helpers.js';
 
 // The public API is unauthenticated by design — no request in this file
@@ -44,6 +45,8 @@ describe('GET /api/public/v1/posts', () => {
       embedding: [0.1, 0.2, 0.3],
       altText: 'a test image',
     });
+    // Stage 2: like counts are read from the Like collection
+    await Like.create({ user: liker.user._id, post: post._id });
     const comment = await Comment.create({
       text: 'internal comment body',
       author: liker.user._id,

@@ -30,7 +30,7 @@ const PostsGrid = ({ posts, emptyText = 'No posts yet' }) => {
             <div className='flex items-center gap-6 text-sm font-semibold text-white'>
               <span className='flex items-center gap-2'>
                 <Heart size={20} fill='currentColor' />
-                {post?.likes?.length ?? 0}
+                {post?.likesCount ?? post?.likes?.length ?? 0}
               </span>
               <span className='flex items-center gap-2'>
                 <MessageCircle size={20} fill='currentColor' />

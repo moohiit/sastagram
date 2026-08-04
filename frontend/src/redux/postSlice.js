@@ -35,14 +35,21 @@ const postSlice = createSlice({
     removePostById: (state, action) => {
       state.posts = state.posts.filter((p) => p._id !== action.payload);
     },
-    // Toggle a user id in a post's likes (optimistic like/unlike).
+    // Toggle a post's like state (optimistic like/unlike). Maintains the
+    // Stage-2 fields (likedByMe/likesCount) and the legacy likes array when
+    // present.
     setPostLiked: (state, action) => {
       const { _id, userId, liked } = action.payload;
       const post = state.posts.find((p) => p._id === _id);
       if (!post) return;
-      const likes = (post.likes || []).filter((id) => id !== userId);
-      if (liked) likes.push(userId);
-      post.likes = likes;
+      const prevCount = post.likesCount ?? post.likes?.length ?? 0;
+      post.likesCount = Math.max(0, prevCount + (liked ? 1 : -1));
+      post.likedByMe = liked;
+      if (Array.isArray(post.likes)) {
+        const likes = post.likes.filter((id) => id !== userId);
+        if (liked) likes.push(userId);
+        post.likes = likes;
+      }
     },
   },
 });

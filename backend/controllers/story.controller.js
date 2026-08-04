@@ -1,7 +1,8 @@
 import sharp from "sharp";
 import cloudinary from "../utils/cloudinary.js";
 import { Story } from "../models/story.model.js";
-import { User } from "../models/user.model.js";
+import { Follow } from "../models/follow.model.js";
+import { getFollowingIds } from "./user.controller.js";
 
 // Add new Story controller
 export const addNewStory = async (req, res) => {
@@ -62,19 +63,14 @@ export const addNewStory = async (req, res) => {
 export const getStoriesFeed = async (req, res) => {
   try {
     const userId = req.id;
-    const me = await User.findById(userId).select("following");
-    if (!me) {
-      return res.status(404).json({
-        message: "User not found",
-        success: false,
-      });
-    }
+    // Following list from the Follow collection (Stage 2)
+    const followingIds = await getFollowingIds(userId);
 
     // TTL removes expired docs, but the monitor only runs ~every 60s —
     // filter by createdAt defensively as well.
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const stories = await Story.find({
-      author: { $in: [...me.following, userId] },
+      author: { $in: [...followingIds, userId] },
       createdAt: { $gt: since },
     })
       .sort({ createdAt: 1 })
@@ -149,8 +145,8 @@ export const markStorySeen = async (req, res) => {
     // else could otherwise pollute it with arbitrary accounts.
     const isAuthor = story.author.toString() === userId;
     if (!isAuthor) {
-      // Same edge the stories feed is built from (viewer.following)
-      const follows = await User.exists({ _id: userId, following: story.author });
+      // Same edge the stories feed is built from (Stage 2: Follow collection)
+      const follows = await Follow.exists({ follower: userId, following: story.author });
       if (!follows) {
         return res.status(403).json({
           message: "Only followers can view this story",
