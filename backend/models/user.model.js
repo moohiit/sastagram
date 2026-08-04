@@ -9,8 +9,8 @@ const userSchema = new mongoose.Schema(
     profilePicture: { type: String, default: "" },
     bio: { type: String, default: "" },
     gender: { type: String, enum: ["male", "female", "other"] },
-    followers: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
-    following: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
+    // Stage 3 (MIGRATION.md): follower/following edges live exclusively in
+    // the Follow collection — the embedded arrays are gone.
     posts: [{ type: mongoose.Schema.Types.ObjectId, ref: "Post" }],
     lastActiveAt: { type: Date },
     bookmarks: [{ type: mongoose.Schema.Types.ObjectId, ref: "Post" }],

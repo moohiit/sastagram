@@ -212,11 +212,7 @@ export const getProfile = async (req, res) => {
         path: "posts",
         options: { sort: { createdAt: -1 } },
       })
-      .select(
-        isOwnProfile
-          ? "-password -followers -following"
-          : "-password -email -followers -following"
-      );
+      .select(isOwnProfile ? "-password" : "-password -email");
     // Bookmarks are private — only include them on your own profile
     if (isOwnProfile) query = query.populate("bookmarks");
     const user = await query;
@@ -268,7 +264,7 @@ export const searchProfile = async (req, res) => {
         path: "posts",
         options: { sort: { createdAt: -1 } },
       })
-      .select("-password -email -followers -following");
+      .select("-password -email");
     // Bookmarks are private — never exposed via username search
     if (user && user._id.toString() !== req.id) user.bookmarks = undefined;
     let payload = user;
@@ -473,48 +469,31 @@ export const followOrUnfollow = async (req, res) => {
       });
     }
     if (isFollowing) {
-      // Unfollow the user
-      await User.updateOne(
-        { _id: userId },
-        { $pull: { following: userToFollowOrUnfollowId } }
-      );
-      await User.updateOne(
-        { _id: userToFollowOrUnfollowId },
-        { $pull: { followers: userId } }
-      );
-      // Stage-1 dual-write to the Follow collection (see MIGRATION.md). The
-      // arrays stay authoritative — never fail the request on this delete.
-      try {
-        await Follow.deleteOne({
-          follower: userId,
-          following: userToFollowOrUnfollowId,
-        });
-      } catch (error) {
-        console.error("Follow dual-delete failed:", error);
-      }
-      // console.log("User unfollowed successfully");
+      // Stage 3 (MIGRATION.md): the Follow collection is the only store
+      await Follow.deleteOne({
+        follower: userId,
+        following: userToFollowOrUnfollowId,
+      });
       return res.status(200).json({
         message: "User unfollowed successfully",
         type: "unfollow",
         success: true,
       });
     } else {
-      // Follow the user. $addToSet keeps concurrent duplicate requests
-      // (double-click / retry) from corrupting the arrays; modifiedCount
-      // tells us whether this request actually created the edge, so the
-      // notification fires exactly once.
-      const addResult = await User.updateOne(
-        { _id: userId },
-        { $addToSet: { following: userToFollowOrUnfollowId } },
-        // timestamps:false — the automatic updatedAt $set would make
-        // modifiedCount 1 even for an already-existing edge
-        { timestamps: false }
+      // Idempotent upsert on the unique {follower, following} index —
+      // upsertedCount tells us whether this request actually created the
+      // edge, so the notification fires exactly once even on double-taps.
+      const result = await Follow.updateOne(
+        { follower: userId, following: userToFollowOrUnfollowId },
+        {
+          $setOnInsert: {
+            follower: userId,
+            following: userToFollowOrUnfollowId,
+          },
+        },
+        { upsert: true }
       );
-      await User.updateOne(
-        { _id: userToFollowOrUnfollowId },
-        { $addToSet: { followers: userId } }
-      );
-      if (addResult.modifiedCount > 0) {
+      if (result.upsertedCount > 0) {
         // Persisted + realtime notification
         await notify({
           recipient: userToFollowOrUnfollowId,
@@ -523,23 +502,6 @@ export const followOrUnfollow = async (req, res) => {
           text: "started following you",
         });
       }
-      // Stage-1 dual-write to the Follow collection (see MIGRATION.md). The
-      // arrays stay authoritative — never fail the request on this upsert.
-      try {
-        await Follow.updateOne(
-          { follower: userId, following: userToFollowOrUnfollowId },
-          {
-            $setOnInsert: {
-              follower: userId,
-              following: userToFollowOrUnfollowId,
-            },
-          },
-          { upsert: true }
-        );
-      } catch (error) {
-        console.error("Follow dual-write failed:", error);
-      }
-      // console.log("User followed successfully");
       return res.status(200).json({
         message: "User followed successfully",
         type: "follow",
@@ -606,7 +568,7 @@ export const getFollowing = (req, res) =>
 // GET /api/v1/user/me — fresh identity for route guarding / session checks
 export const getMe = async (req, res) => {
   try {
-    const user = await User.findById(req.id).select("-password -followers -following");
+    const user = await User.findById(req.id).select("-password");
     if (!user) {
       return res.status(404).json({ message: "User not found", success: false });
     }
@@ -707,16 +669,6 @@ const acceptRequestInternal = async (request) => {
     { $setOnInsert: { follower: request.from, following: request.to } },
     { upsert: true }
   );
-  await User.updateOne(
-    { _id: request.from },
-    { $addToSet: { following: request.to } },
-    { timestamps: false }
-  );
-  await User.updateOne(
-    { _id: request.to },
-    { $addToSet: { followers: request.from } },
-    { timestamps: false }
-  );
   await FollowRequest.deleteOne({ _id: request._id });
   await notify({
     recipient: request.from,
@@ -800,16 +752,6 @@ export const blockUser = async (req, res) => {
           { from: targetId, to: req.id },
         ],
       }),
-      User.updateOne(
-        { _id: req.id },
-        { $pull: { following: targetId, followers: targetId } },
-        { timestamps: false }
-      ),
-      User.updateOne(
-        { _id: targetId },
-        { $pull: { following: req.id, followers: req.id } },
-        { timestamps: false }
-      ),
     ]);
     return res.status(200).json({ success: true, message: "User blocked" });
   } catch (error) {
@@ -889,11 +831,6 @@ export const deleteAccount = async (req, res) => {
       Conversation.deleteMany({ participants: userId }),
       PushSubscription.deleteMany({ user: userId }),
       User.updateMany({ blocked: userId }, { $pull: { blocked: userId } }),
-      User.updateMany(
-        { $or: [{ following: userId }, { followers: userId }] },
-        { $pull: { following: userId, followers: userId } },
-        { timestamps: false }
-      ),
       User.updateMany(
         { bookmarks: { $in: postIds } },
         { $pull: { bookmarks: { $in: postIds } } }

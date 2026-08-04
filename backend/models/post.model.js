@@ -33,12 +33,7 @@ const postSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-    likes: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User"
-      }
-    ],
+    // Stage 3 (MIGRATION.md): likes live exclusively in the Like collection
     comments: [
       {
         type: mongoose.Schema.Types.ObjectId,

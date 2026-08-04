@@ -79,7 +79,7 @@ Small transient mismatches are possible while traffic is flowing (a request
 between the array write and the dual-write); re-run the check — persistent
 mismatches are fixed by re-running `npm run migrate:social-graph`.
 
-## Stage 2 — Flip reads to the collections (CURRENT — code shipped)
+## Stage 2 — Flip reads to the collections (DONE)
 
 > **Deployment note:** run `npm run migrate:social-graph` and the parity
 > checks BEFORE deploying this code — reads now come from the collections,
@@ -111,22 +111,31 @@ Original checklist:
   rollback path: flip reads back to the arrays, which never went stale.
 - Re-run the parity checks above before and after the flip.
 
-## Stage 3 — Drop the arrays
+## Stage 3 — Drop the arrays (CURRENT — code shipped)
 
-Once Stage 2 has been stable in production:
+Implemented in code:
 
-- Remove the array writes from the controllers (keep only the collection
-  writes; the try/catch guards are removed and the collection writes become
-  the primary, request-failing writes).
-- Remove `likes` from the Post schema and `followers`/`following` from the
-  User schema.
-- Unset stored data:
+- Array writes are gone from the controllers. `Like`/`Follow` collection
+  writes are the primary, request-failing writes; follow/like notifications
+  are gated on `upsertedCount` (exactly-once on double-taps).
+- `likes` removed from the Post schema; `followers`/`following` removed from
+  the User schema. All reads were already collection-based since Stage 2.
+- `npm run migrate:social-graph` still works post-Stage-3 (it reads the raw
+  array fields via lean projections) — run it before the drop if this deploy
+  skipped Stage 2.
 
-```js
-db.posts.updateMany({}, { $unset: { likes: "" } });
-db.users.updateMany({}, { $unset: { followers: "", following: "" } });
+### The destructive step
+
+Stored array data is removed with:
+
+```bash
+# 1. TAKE A BACKUP/SNAPSHOT FIRST — this cannot be undone in place.
+# 2. Unset the arrays (refuses to run if the collections hold fewer edges
+#    than the arrays, i.e. the backfill never ran; FORCE=1 overrides):
+npm run migrate:drop-social-arrays
 ```
 
-Stage 3 is the only destructive step — take a backup/snapshot first. Rollback
-after the `$unset` requires restoring the arrays from the collections (the
-inverse of the backfill), so only run it after Stage 2 parity is proven.
+The script prints array-vs-collection totals before unsetting. Deploying the
+Stage-3 code BEFORE running the drop is safe — the leftover array fields are
+simply ignored (and no longer written). Rollback after the `$unset` requires
+restoring the arrays from the collections (the inverse of the backfill).

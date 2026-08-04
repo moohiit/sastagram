@@ -2,7 +2,6 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import request from 'supertest';
 import app from '../app.js';
 import { Story } from '../models/story.model.js';
-import { User } from '../models/user.model.js';
 import { Follow } from '../models/follow.model.js';
 import { createUserAndLogin } from './helpers.js';
 
@@ -14,9 +13,7 @@ beforeAll(async () => {
   viewer = await createUserAndLogin({ username: 'storyviewer', email: 'storyviewer@example.com' });
   author = await createUserAndLogin({ username: 'storyauthor', email: 'storyauthor@example.com' });
   stranger = await createUserAndLogin({ username: 'storystranger', email: 'storystranger@example.com' });
-  // viewer follows author — Stage 2 reads come from the Follow collection,
-  // the array is kept in sync as the dual-write would
-  await User.findByIdAndUpdate(viewer.user._id, { $addToSet: { following: author.user._id } });
+  // viewer follows author — the Follow collection is the only store (Stage 3)
   await Follow.create({ follower: viewer.user._id, following: author.user._id });
 });
 

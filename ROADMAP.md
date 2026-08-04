@@ -15,7 +15,7 @@ Sequential build order. Status: ✅ done · 🔨 in progress · ⬜ pending
 | 9 | Web push notifications | ✅ | Service worker + VAPID |
 | 10 | Redis socket adapter | ✅ | Horizontal scaling |
 | 11 | Public read-only API + Swagger | ✅ | Rate-limited |
-| 12 | Phase-5 schema migration | ✅ (stage 2) | Reads flipped to Like/Follow collections; stage 3 pending prod soak |
+| 12 | Phase-5 schema migration | ✅ (stage 3) | Arrays dropped — Like/Follow collections are the only store |
 | 13 | Hashtags & @mentions | ✅ | Tag feed at /tags/:tag, mention notifications |
 | 14 | Comment replies + comment likes | ✅ | One-level threading, per-comment hearts |
 | 15 | Account settings & privacy | ✅ | Password change, private accounts + follow requests, blocking, account deletion |

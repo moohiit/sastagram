@@ -524,27 +524,16 @@ export const likePost = async (req, res) => {
         success: false,
       });
     }
-    //like logic (atomic — no extra save needed). modifiedCount tells us
-    //whether this request actually added the like, so re-likes can't spam
-    //the author with duplicate notifications.
-    // timestamps:false — otherwise mongoose's automatic updatedAt $set makes
-    // modifiedCount 1 even when the like already existed
-    const likeResult = await post.updateOne(
-      { $addToSet: { likes: likerId } },
-      { timestamps: false }
+    // Stage 3 (MIGRATION.md): the Like collection is the only store. The
+    // upsert is idempotent, and upsertedCount tells us whether this request
+    // actually created the like — so re-likes can't spam the author with
+    // duplicate notifications.
+    const likeResult = await Like.updateOne(
+      { user: likerId, post: postId },
+      { $setOnInsert: { user: likerId, post: postId } },
+      { upsert: true }
     );
-    // Stage-1 dual-write to the Like collection (see MIGRATION.md). The array
-    // stays authoritative — never fail the request if this write fails.
-    try {
-      await Like.updateOne(
-        { user: likerId, post: postId },
-        { $setOnInsert: { user: likerId, post: postId } },
-        { upsert: true }
-      );
-    } catch (error) {
-      console.error("Like dual-write failed:", error);
-    }
-    if (likeResult.modifiedCount > 0) {
+    if (likeResult.upsertedCount > 0) {
       // Persisted + realtime notification (offline users see it on next login)
       await notify({
         recipient: post.author,
@@ -581,16 +570,9 @@ export const dislikePost = async (req, res) => {
         success: false,
       });
     }
-    //Dislike logic (atomic — no extra save needed). Unliking a post is not a
-    //notification-worthy event — no notification is sent.
-    await post.updateOne({ $pull: { likes: dislikerId } });
-    // Stage-1 dual-write to the Like collection (see MIGRATION.md). The array
-    // stays authoritative — never fail the request if this write fails.
-    try {
-      await Like.deleteOne({ user: dislikerId, post: postId });
-    } catch (error) {
-      console.error("Like dual-delete failed:", error);
-    }
+    // Stage 3 (MIGRATION.md): delete the Like edge — the collection is the
+    // only store. Unliking is not a notification-worthy event.
+    await Like.deleteOne({ user: dislikerId, post: postId });
 
     return res.status(200).json({
       message: "Post disliked succesfully",
