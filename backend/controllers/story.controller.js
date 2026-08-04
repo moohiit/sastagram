@@ -145,6 +145,19 @@ export const markStorySeen = async (req, res) => {
         success: false,
       });
     }
+    // Only the author or a follower may appear in the viewer list — anyone
+    // else could otherwise pollute it with arbitrary accounts.
+    const isAuthor = story.author.toString() === userId;
+    if (!isAuthor) {
+      // Same edge the stories feed is built from (viewer.following)
+      const follows = await User.exists({ _id: userId, following: story.author });
+      if (!follows) {
+        return res.status(403).json({
+          message: "Only followers can view this story",
+          success: false,
+        });
+      }
+    }
     // Atomic — no extra save needed
     await story.updateOne({ $addToSet: { seenBy: userId } });
     return res.status(200).json({
