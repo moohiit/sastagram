@@ -5,11 +5,9 @@ import { toast } from 'sonner';
 import axios from 'axios';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { setAuthUser, setSelectedUser } from '@/redux/authSlice';
-import { setPosts } from '@/redux/postSlice';
-import { setMessages, setOnlineUsers } from '@/redux/chatSlice';
+import { resetApp } from '@/redux/store';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
-import { clearNotifications, markAllRead } from '@/redux/rtnSlice';
+import { markAllRead } from '@/redux/rtnSlice';
 import NotificationItem from './NotificationItem';
 
 const itemClass =
@@ -39,12 +37,9 @@ function LeftSidebar({ openCreate }) {
     try {
       const response = await axios.get('/api/v1/user/logout', { withCredentials: true });
       if (response.data.success) {
-        dispatch(setAuthUser(null));
-        dispatch(setPosts([]));
-        dispatch(setMessages([]));
-        dispatch(setOnlineUsers([]));
-        dispatch(setSelectedUser(null));
-        dispatch(clearNotifications());
+        // Reset EVERY slice — piecemeal clearing left the previous account's
+        // followings/suggestedUsers/userProfile in persisted state.
+        dispatch(resetApp());
         toast.success(response.data.message);
         navigate('/login');
       }

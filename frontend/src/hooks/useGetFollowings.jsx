@@ -6,13 +6,14 @@ import { toast } from 'sonner';
 
 const useGetFollowings = () => {
   const dispatch = useDispatch();
-  const { user } = useSelector(store => store.auth);
-  // console.log(user);
+  // Keyed on the id, not the user object — every like/bookmark dispatches a
+  // fresh user object and used to refire this fetch on each one.
+  const userId = useSelector(store => store.auth.user?._id);
 
   useEffect(() => {
     const getFollowings = async () => {
       try {
-        const response = await axios.get(`/api/v1/user/${user?._id}/following`, {
+        const response = await axios.get(`/api/v1/user/${userId}/following`, {
           withCredentials: true,
         });
         if (response.data.success) {
@@ -27,10 +28,10 @@ const useGetFollowings = () => {
       }
     };
 
-    if (user?._id) {
+    if (userId) {
       getFollowings();
     }
-  }, [dispatch, user]);
+  }, [dispatch, userId]);
 };
 
 export default useGetFollowings;
