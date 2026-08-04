@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
 import { Trash2 } from 'lucide-react'
 import { cdn } from '@/lib/cdn'
 import { timeAgo } from '@/lib/utils'
-import { setPosts } from '@/redux/postSlice'
+import { updatePostById } from '@/redux/postSlice'
 import useRequireLogin from '@/hooks/useRequireLogin'
 
 // Instagram-style comments dialog: image left / thread right on desktop,
@@ -22,19 +22,44 @@ function CommentDialog({ open, setOpen, post }) {
 
   const feedPost = posts.find((p) => p._id === post._id)
   const [localComments, setLocalComments] = useState(post.comments || [])
-  const comments = feedPost ? feedPost.comments || [] : localComments
+  const comments = localComments
 
   const [comment, setComment] = useState('')
 
+  // The feed only carries a capped comment preview — load the full thread
+  // when the dialog opens.
   useEffect(() => {
-    setLocalComments(post.comments || [])
-  }, [post])
+    if (!open) return
+    setLocalComments(feedPost?.comments || post.comments || [])
+    let cancelled = false
+    const fetchComments = async () => {
+      try {
+        const response = await axios.get(`/api/v1/post/${post._id}/comment/all`, {
+          withCredentials: true,
+        })
+        if (!cancelled && response.data.success) {
+          setLocalComments(response.data.comments || [])
+        }
+      } catch (error) {
+        console.error(error)
+      }
+    }
+    fetchComments()
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, post._id])
 
   const syncComments = (updatedComments) => {
     setLocalComments(updatedComments)
     if (feedPost) {
+      // Keep the feed's preview + count in sync without replacing the array
       dispatch(
-        setPosts(posts.map((p) => (p._id === post._id ? { ...p, comments: updatedComments } : p)))
+        updatePostById({
+          _id: post._id,
+          changes: { comments: updatedComments, commentsCount: updatedComments.length },
+        })
       )
     }
   }

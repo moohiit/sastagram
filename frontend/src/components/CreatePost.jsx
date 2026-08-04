@@ -11,7 +11,7 @@ import { Input } from './ui/input'
 import { BarChart2, ImagePlus, Loader2, Plus, Sparkles, X } from 'lucide-react'
 import useAiEnabled from '@/hooks/useAiEnabled'
 import { readFileAsDataURL } from '@/lib/utils'
-import { setPosts } from '@/redux/postSlice'
+import { addPost } from '@/redux/postSlice'
 
 const MAX_CAPTION = 2200
 const MAX_FILE_MB = 10
@@ -35,7 +35,6 @@ function CreatePost({ open, setOpen }) {
   const [pollOptions, setPollOptions] = useState(['', ''])
   const aiEnabled = useAiEnabled()
   const { user } = useSelector((store) => store.auth)
-  const { posts } = useSelector((store) => store.post)
   const dispatch = useDispatch()
   const navigate = useNavigate()
 
@@ -157,7 +156,7 @@ function CreatePost({ open, setOpen }) {
         withCredentials: true,
       })
       if (response.data.success) {
-        dispatch(setPosts([response.data.post, ...posts]))
+        dispatch(addPost(response.data.post))
         toast.success(response.data.message)
         setFile(null)
         setCaption('')

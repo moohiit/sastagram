@@ -1,6 +1,7 @@
 import { combineReducers, configureStore } from "@reduxjs/toolkit";
 import {
   persistReducer,
+  createTransform,
   FLUSH,
   REHYDRATE,
   PAUSE,
@@ -35,10 +36,23 @@ const migrations = {
   },
 };
 
+// Never persist user.posts — login returns the fully populated post list,
+// which nothing reads back and which can blow the ~5MB localStorage quota
+// (a failed persist write silently stops ALL auth persistence).
+const stripAuthPosts = createTransform(
+  (inbound) =>
+    inbound?.user?.posts?.length
+      ? { ...inbound, user: { ...inbound.user, posts: [] } }
+      : inbound,
+  null,
+  { whitelist: ["auth"] }
+);
+
 const persistConfig = {
   key: "root",
   version: 2,
   storage,
+  transforms: [stripAuthPosts],
   migrate: (state, version) =>
     Promise.resolve(state && version !== 2 ? migrations[2](state) : state),
   // Only auth survives reloads. Persisting the feed/chat/socket caused stale
@@ -46,12 +60,20 @@ const persistConfig = {
   whitelist: ["auth"],
 };
 
-const rootReducer = combineReducers({
+const appReducer = combineReducers({
   auth: authSlice,
   post: postSlice,
   chat: chatSlice,
   notification:rtnSlice,
 });
+
+// Logout dispatches resetApp so EVERY slice returns to its initial state —
+// clearing slices one by one left the previous account's followings,
+// suggestedUsers and userProfile in persisted state for the next login.
+export const RESET_APP = "app/reset";
+export const resetApp = () => ({ type: RESET_APP });
+const rootReducer = (state, action) =>
+  appReducer(action.type === RESET_APP ? undefined : state, action);
 const persistedReducer = persistReducer(persistConfig, rootReducer);
 const store = configureStore({
   reducer: persistedReducer,

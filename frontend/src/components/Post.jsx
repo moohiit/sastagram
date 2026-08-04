@@ -4,7 +4,7 @@ import { toast } from 'sonner'
 import { useDispatch, useSelector } from 'react-redux'
 import { Heart } from 'lucide-react'
 import { cdn } from '@/lib/cdn'
-import { setPosts } from '@/redux/postSlice'
+import { updatePostById, removePostById, setPostLiked } from '@/redux/postSlice'
 import { setAuthUser } from '@/redux/authSlice'
 import useRequireLogin from '@/hooks/useRequireLogin'
 import CommentDialog from './CommentDialog'
@@ -20,7 +20,6 @@ const DOUBLE_TAP_MS = 300
 
 function Post({ post }) {
   const { user } = useSelector((store) => store.auth)
-  const { posts } = useSelector((store) => store.post)
   const dispatch = useDispatch()
   const requireLogin = useRequireLogin()
 
@@ -47,23 +46,12 @@ function Post({ post }) {
   useEffect(() => () => clearTimeout(burstTimerRef.current), [])
 
   // ---- like / dislike (optimistic, reverts on failure) ----
+  // Per-post reducer — replacing the whole array from a pre-await snapshot
+  // used to wipe feed pages loaded while the request was in flight.
   const setLikeState = (nextLiked) => {
     setLiked(nextLiked)
     setLikeCount((c) => (nextLiked ? c + 1 : c - 1))
-    dispatch(
-      setPosts(
-        posts.map((p) =>
-          p._id === post._id
-            ? {
-                ...p,
-                likes: nextLiked
-                  ? [...p.likes.filter((id) => id !== user._id), user._id]
-                  : p.likes.filter((id) => id !== user._id),
-              }
-            : p
-        )
-      )
-    )
+    dispatch(setPostLiked({ _id: post._id, userId: user._id, liked: nextLiked }))
   }
 
   const toggleLike = async (forceLike = false) => {
@@ -127,9 +115,14 @@ function Post({ post }) {
         return
       }
       if (response.data.success) {
-        const updatedComments = [...comments, response.data.comment]
         dispatch(
-          setPosts(posts.map((p) => (p._id === post._id ? { ...p, comments: updatedComments } : p)))
+          updatePostById({
+            _id: post._id,
+            changes: {
+              comments: [...comments, response.data.comment],
+              commentsCount: (post.commentsCount ?? comments.length) + 1,
+            },
+          })
         )
         setComment('')
       }
@@ -148,9 +141,12 @@ function Post({ post }) {
       })
       if (response?.data.success) {
         const saved = response.data?.type === 'saved'
+        // Guarded — a persisted auth object from an old app version may not
+        // have these arrays at all
+        const bookmarks = user.bookmarks || []
         const newBookmarks = saved
-          ? [...user.bookmarks, post._id]
-          : user.bookmarks.filter((id) => id !== post._id)
+          ? [...bookmarks.filter((id) => id !== post._id), post._id]
+          : bookmarks.filter((id) => id !== post._id)
         dispatch(setAuthUser({ ...user, bookmarks: newBookmarks }))
         toast.success(response.data.message)
       }
@@ -168,7 +164,7 @@ function Post({ post }) {
         withCredentials: true,
       })
       if (response.data.success) {
-        dispatch(setPosts(posts.filter((p) => p._id !== post._id)))
+        dispatch(removePostById(post._id))
         toast.success(response.data.message)
       }
     } catch (error) {
@@ -187,10 +183,11 @@ function Post({ post }) {
         withCredentials: true,
       })
       if (response.data.success) {
+        const following = user.following || []
         const newFollowing =
           response.data.type === 'follow'
-            ? [...user.following, post.author._id]
-            : user.following.filter((id) => id !== post.author._id)
+            ? [...following.filter((id) => id !== post.author._id), post.author._id]
+            : following.filter((id) => id !== post.author._id)
         dispatch(setAuthUser({ ...user, following: newFollowing }))
         toast.success(response.data.message)
       }
@@ -264,12 +261,14 @@ function Post({ post }) {
 
       {post.poll && <PostPoll post={post} />}
 
-      {comments.length > 0 && (
+      {(post.commentsCount ?? comments.length) > 0 && (
         <button
           onClick={() => setCommentsOpen(true)}
           className='block px-3 pt-1 text-sm text-zinc-400 cursor-pointer hover:text-gray-100'
         >
-          {comments.length === 1 ? 'View 1 comment' : `View all ${comments.length} comments`}
+          {(post.commentsCount ?? comments.length) === 1
+            ? 'View 1 comment'
+            : `View all ${post.commentsCount ?? comments.length} comments`}
         </button>
       )}
 

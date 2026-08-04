@@ -11,7 +11,8 @@ import EditProfile from './components/EditProfile';
 import Chat from './components/Chat';
 import { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { setOnlineUsers } from './redux/chatSlice';
+import { setOnlineUsers, addOnlineUser, removeOnlineUser } from './redux/chatSlice';
+import PostDetail from './components/PostDetail';
 import { connectSocket, closeSocket } from './lib/socket';
 import { addNotification, setNotifications } from './redux/rtnSlice';
 import axios from 'axios';
@@ -39,6 +40,10 @@ const browserRouter = createBrowserRouter([
       {
         path: `/profile/:id`,
         element: <Profile />
+      },
+      {
+        path: "/post/:id",
+        element: <PostDetail />
       },
       {
         path: "/messages",
@@ -83,17 +88,24 @@ const browserRouter = createBrowserRouter([
 function App() {
   const { user } = useSelector(store => store.auth);
   const dispatch = useDispatch();
+  // Keyed on user._id, NOT the user object: every like/bookmark/follow
+  // dispatches a fresh user object, and depending on it tore the socket down
+  // and reconnected mid-session, dropping any events that arrived in the gap.
+  const userId = user?._id;
   useEffect(() => {
-    if (user) {
+    if (userId) {
       // Same-origin connection: proxied by Vite in dev, served by the backend
       // itself in production. Identity comes from the httpOnly JWT cookie —
       // the server no longer trusts a client-supplied userId. The instance
       // lives in a module singleton (not redux — it isn't serializable).
       const socketio = connectSocket();
 
+      // Full snapshot on connect, then delta events
       socketio.on('getOnlineUsers', (onlineUsers) => {
         dispatch(setOnlineUsers(onlineUsers));
       });
+      socketio.on('userOnline', (id) => dispatch(addOnlineUser(id)));
+      socketio.on('userOffline', (id) => dispatch(removeOnlineUser(id)));
       // The server emits the full persisted notification object
       // ({_id, sender, type, post, text, read, createdAt})
       socketio.on('notification', (notification) => {
@@ -106,7 +118,7 @@ function App() {
     }
     closeSocket();
     dispatch(setOnlineUsers(null));
-  }, [user, dispatch]);
+  }, [userId, dispatch]);
 
   // Load persisted notifications once the user is logged in
   useEffect(() => {

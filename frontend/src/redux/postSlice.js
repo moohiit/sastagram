@@ -27,7 +27,32 @@ const postSlice = createSlice({
       const idx = state.posts.findIndex((p) => p._id === _id);
       if (idx !== -1) state.posts[idx] = { ...state.posts[idx], ...changes };
     },
+    // Prepend a newly created post (never replaces the array — a stale
+    // snapshot in the caller can't wipe pages loaded since).
+    addPost: (state, action) => {
+      if (action.payload?._id) state.posts.unshift(action.payload);
+    },
+    removePostById: (state, action) => {
+      state.posts = state.posts.filter((p) => p._id !== action.payload);
+    },
+    // Toggle a user id in a post's likes (optimistic like/unlike).
+    setPostLiked: (state, action) => {
+      const { _id, userId, liked } = action.payload;
+      const post = state.posts.find((p) => p._id === _id);
+      if (!post) return;
+      const likes = (post.likes || []).filter((id) => id !== userId);
+      if (liked) likes.push(userId);
+      post.likes = likes;
+    },
   },
 });
-export const { setPosts, setFeedPage, appendFeedPage, updatePostById } = postSlice.actions;
+export const {
+  setPosts,
+  setFeedPage,
+  appendFeedPage,
+  updatePostById,
+  addPost,
+  removePostById,
+  setPostLiked,
+} = postSlice.actions;
 export default postSlice.reducer;

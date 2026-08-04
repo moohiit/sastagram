@@ -5,10 +5,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { Avatar, AvatarImage, AvatarFallback } from './ui/avatar';
 import { Link, useNavigate } from 'react-router-dom';
 import { Button } from './ui/button';
-import { setAuthUser, setSelectedUser } from '@/redux/authSlice';
-import { setPosts } from '@/redux/postSlice';
-import { setMessages, setOnlineUsers } from '@/redux/chatSlice';
-import { clearNotifications } from '@/redux/rtnSlice';
+import { resetApp } from '@/redux/store';
 import SuggestedUsers from './SuggestedUsers';
 
 const FOOTER_LINKS = ['About', 'Help', 'API', 'Privacy', 'Terms'];
@@ -24,12 +21,8 @@ function RightSidebar() {
     try {
       const response = await axios.get('/api/v1/user/logout', { withCredentials: true });
       if (response.data.success) {
-        dispatch(setAuthUser(null));
-        dispatch(setPosts([]));
-        dispatch(setMessages([]));
-        dispatch(setOnlineUsers([]));
-        dispatch(setSelectedUser(null));
-        dispatch(clearNotifications());
+        // Reset every slice in one action (see store.js resetApp)
+        dispatch(resetApp());
         toast.success(response.data.message);
         navigate('/login');
       }

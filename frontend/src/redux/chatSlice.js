@@ -26,6 +26,15 @@ const chatSlice = createSlice({
     setOnlineUsers: (state, action) => {
       state.onlineUsers = action.payload || [];
     },
+    // Delta presence events (server no longer re-broadcasts the full list)
+    addOnlineUser: (state, action) => {
+      if (!state.onlineUsers.includes(action.payload)) {
+        state.onlineUsers.push(action.payload);
+      }
+    },
+    removeOnlineUser: (state, action) => {
+      state.onlineUsers = state.onlineUsers.filter((id) => id !== action.payload);
+    },
     setConversations: (state, action) => {
       state.conversations = action.payload || [];
       state.conversationsLoaded = true;
@@ -44,6 +53,8 @@ const chatSlice = createSlice({
       state.prevCursor = null;
     },
     addMessage: (state, action) => {
+      // Reconnects can re-deliver a message — never render duplicate _ids
+      if (state.messages.some((m) => m._id === action.payload._id)) return;
       state.messages.push(action.payload);
     },
     // Older page fetched via ?before=<cursor> — goes in front, chronological.
@@ -96,6 +107,8 @@ const chatSlice = createSlice({
 
 export const {
   setOnlineUsers,
+  addOnlineUser,
+  removeOnlineUser,
   setConversations,
   setMessages,
   setThread,
