@@ -25,13 +25,26 @@ const messageSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    // Emoji reactions — at most one per user (replaced on re-react)
+    reactions: [
+      {
+        _id: false,
+        user: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },
+        emoji: { type: String, required: true },
+      },
+    ],
+    // Unsend = soft delete: content is cleared, the bubble shows "unsent"
+    deleted: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true }
 );
 
-// Require at least one of message text / shared post.
+// Require at least one of message text / shared post (unsent messages exempt).
 messageSchema.pre("validate", function (next) {
-  if (!this.post && !(this.message && this.message.trim())) {
+  if (!this.deleted && !this.post && !(this.message && this.message.trim())) {
     this.invalidate("message", "A message must contain text or a shared post");
   }
   next();

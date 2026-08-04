@@ -1,6 +1,8 @@
 import {
   addMessage,
   clearUnread,
+  markMessageUnsent,
+  setMessageReactions,
   setSeen,
   setTyping,
   upsertConversation,
@@ -74,15 +76,27 @@ const useGetRTM = () => {
       if (from) dispatch(setTyping({ userId: from, isTyping: false }));
     };
 
+    const onReaction = ({ messageId, reactions } = {}) => {
+      if (messageId) dispatch(setMessageReactions({ messageId, reactions }));
+    };
+
+    const onUnsent = ({ messageId } = {}) => {
+      if (messageId) dispatch(markMessageUnsent(messageId));
+    };
+
     socket.on("newMessage", onNewMessage);
     socket.on("messagesRead", onMessagesRead);
     socket.on("typing", onTyping);
     socket.on("stopTyping", onStopTyping);
+    socket.on("messageReaction", onReaction);
+    socket.on("messageUnsent", onUnsent);
     return () => {
       socket.off("newMessage", onNewMessage);
       socket.off("messagesRead", onMessagesRead);
       socket.off("typing", onTyping);
       socket.off("stopTyping", onStopTyping);
+      socket.off("messageReaction", onReaction);
+      socket.off("messageUnsent", onUnsent);
     };
   }, [socket, dispatch]);
 };

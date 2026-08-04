@@ -57,6 +57,22 @@ const chatSlice = createSlice({
       if (state.messages.some((m) => m._id === action.payload._id)) return;
       state.messages.push(action.payload);
     },
+    // Live reaction update for a message in the open thread.
+    setMessageReactions: (state, action) => {
+      const { messageId, reactions } = action.payload;
+      const msg = state.messages.find((m) => m._id === messageId);
+      if (msg) msg.reactions = reactions || [];
+    },
+    // Unsend: keep the bubble slot, clear content, flag as deleted.
+    markMessageUnsent: (state, action) => {
+      const msg = state.messages.find((m) => m._id === action.payload);
+      if (msg) {
+        msg.deleted = true;
+        msg.message = '';
+        msg.post = null;
+        msg.reactions = [];
+      }
+    },
     // Older page fetched via ?before=<cursor> — goes in front, chronological.
     prependOlder: (state, action) => {
       state.messages = [...(action.payload.messages || []), ...state.messages];
@@ -114,6 +130,8 @@ export const {
   setThread,
   clearThread,
   addMessage,
+  setMessageReactions,
+  markMessageUnsent,
   prependOlder,
   upsertConversation,
   clearUnread,
