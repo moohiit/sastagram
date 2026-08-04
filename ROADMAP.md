@@ -19,6 +19,10 @@ Sequential build order. Status: ✅ done · 🔨 in progress · ⬜ pending
 | 13 | Hashtags & @mentions | ✅ | Tag feed at /tags/:tag, mention notifications |
 | 14 | Comment replies + comment likes | ✅ | One-level threading, per-comment hearts |
 | 15 | Account settings & privacy | ✅ | Password change, private accounts + follow requests, blocking, account deletion |
+| 16 | Message reactions & unsend | ✅ | Emoji reactions, soft-delete unsend |
+| 17 | Ranked Explore feed | ✅ | Gravity score over Like/Comment collections |
+| 18 | Group chats | ✅ | Create/add/leave, admin transfer, realtime |
+| 19 | AI smart replies + similar posts | ✅ | ✨ in DM composer; "More like this" on /post/:id |
 
 AI features degrade gracefully when GEMINI_API_KEY is not configured
 (buttons hidden / checks skipped).
