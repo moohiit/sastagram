@@ -22,6 +22,9 @@ function NotificationItem({ notification }) {
         {notification.type === 'follow' && (
           <span className='font-semibold text-sm'>started following you</span>
         )}
+        {notification.type === 'mention' && (
+          <span className='font-semibold text-sm'>mentioned you</span>
+        )}
         {notification.type === 'comment' && (
           <>
             <span className='font-semibold text-sm'>commented:</span>

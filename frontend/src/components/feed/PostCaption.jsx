@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
+import RichText from './RichText'
 
 // Caption with bold username, 2-line clamp and a "more" expander when clamped.
 function PostCaption({ post }) {
@@ -33,7 +34,7 @@ function PostCaption({ post }) {
         >
           {post?.author?.username}
         </Link>
-        {post.caption}
+        <RichText text={post.caption} />
       </p>
       {!expanded && clamped && (
         <button

@@ -9,6 +9,7 @@ import { Trash2 } from 'lucide-react'
 import { cdn } from '@/lib/cdn'
 import { timeAgo } from '@/lib/utils'
 import { updatePostById } from '@/redux/postSlice'
+import RichText from './feed/RichText'
 import useRequireLogin from '@/hooks/useRequireLogin'
 
 // Instagram-style comments dialog: image left / thread right on desktop,
@@ -153,7 +154,7 @@ function CommentDialog({ open, setOpen, post }) {
                   </Avatar>
                   <p className='text-sm text-gray-100'>
                     <span className='font-semibold mr-1.5'>{post.author?.username}</span>
-                    {post.caption}
+                    <RichText text={post.caption} />
                     <span className='block text-xs text-zinc-500 mt-1'>{timeAgo(post.createdAt)}</span>
                   </p>
                 </div>
@@ -181,7 +182,7 @@ function CommentDialog({ open, setOpen, post }) {
                       >
                         {cmnt.author?.username || 'Anonymous'}
                       </Link>
-                      {cmnt.text}
+                      <RichText text={cmnt.text} />
                     </p>
                     <span className='text-xs text-zinc-500'>{timeAgo(cmnt.createdAt)}</span>
                   </div>

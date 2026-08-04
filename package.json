@@ -10,7 +10,8 @@
     "build": "npm install && npm install --prefix frontend && npm run build --prefix frontend",
     "start": "node backend/server.js",
     "test": "vitest run",
-    "migrate:social-graph": "node backend/scripts/backfillSocialGraph.js"
+    "migrate:social-graph": "node backend/scripts/backfillSocialGraph.js",
+    "migrate:hashtags": "node backend/scripts/backfillHashtags.js"
   },
   "keywords": [],
   "author": "Mohit Patel",
