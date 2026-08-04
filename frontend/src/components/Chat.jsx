@@ -12,6 +12,7 @@ import useGetRTM from '@/hooks/useGetRTM';
 import useGetFollowings from '@/hooks/useGetFollowings';
 import ConversationList from './chat/ConversationList';
 import ChatThread from './chat/ChatThread';
+import GroupThread from './chat/GroupThread';
 import NewChatDialog from './chat/NewChatDialog';
 
 /**
@@ -54,6 +55,9 @@ function Chat() {
     return () => { cancelled = true; };
   }, [dispatch]);
 
+  // Deep link /chat/group/:groupId — group thread mode
+  const groupId = params?.groupId || null;
+
   // Deep link /chat/:id — resolve the counterpart locally when possible,
   // otherwise fall back to a profile fetch (useGetUserProfile no-ops on null).
   const userId = params?.id || null;
@@ -92,7 +96,13 @@ function Chat() {
     navigate('/chat');
   }, [navigate]);
 
-  const threadOpen = !!selectedUser;
+  const handleSelectGroup = useCallback((g) => {
+    if (!g?._id) return;
+    dispatch(setSelectedUser(null));
+    navigate(`/chat/group/${g._id}`);
+  }, [dispatch, navigate]);
+
+  const threadOpen = !!selectedUser || !!groupId;
 
   return (
     <div className='flex h-[calc(100dvh-7.5rem)] md:h-[100dvh]'>
@@ -100,12 +110,19 @@ function Chat() {
       <aside
         className={`${threadOpen ? 'hidden md:flex' : 'flex'} w-full md:w-[340px] lg:w-[380px] shrink-0 flex-col border-r border-zinc-800`}
       >
-        <ConversationList onSelect={handleSelect} selectedUserId={selectedUser?._id} />
+        <ConversationList
+          onSelect={handleSelect}
+          selectedUserId={selectedUser?._id}
+          onSelectGroup={handleSelectGroup}
+          activeGroupId={groupId}
+        />
       </aside>
 
       {/* Thread pane — full-screen below md when a thread is open */}
       <section className={`${threadOpen ? 'flex' : 'hidden md:flex'} flex-1 min-w-0 flex-col`}>
-        {threadOpen ? (
+        {groupId ? (
+          <GroupThread groupId={groupId} onBack={handleBack} onLeft={handleBack} />
+        ) : threadOpen ? (
           <ChatThread selectedUser={selectedUser} onBack={handleBack} />
         ) : (
           <div className='flex flex-1 flex-col items-center justify-center px-4'>

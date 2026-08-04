@@ -4,7 +4,12 @@ const conversationSchema = new mongoose.Schema(
   {
     // Canonical pair key ("<lowerId>:<higherId>") — unique so two concurrent
     // first messages can't create duplicate conversations for the same pair.
+    // Groups have no key (sparse index skips them).
     key: { type: String, unique: true, sparse: true },
+    // Group chat fields
+    isGroup: { type: Boolean, default: false },
+    name: { type: String, default: "" },
+    admin: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     participants: [
       {
         type: mongoose.Schema.Types.ObjectId,
