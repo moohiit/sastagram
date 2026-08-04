@@ -1,9 +1,8 @@
 import mongoose from "mongoose";
-import { Conversation } from "../models/conversation.model.js";
+import { Conversation, conversationKey } from "../models/conversation.model.js";
 import { Message } from "../models/message.model.js";
 import { Post } from "../models/post.model.js";
-import { getRecieverSocketId } from "../socket.io/socket.io.js";
-import { io } from "../socket.io/socket.io.js";
+import { emitToUser, isUserOnline } from "../socket.io/socket.io.js";
 import { User } from "../models/user.model.js";
 import { isPushEnabled, sendPushTo } from "../utils/webPush.js";
 
@@ -19,7 +18,19 @@ export const sendMessage = async (req, res) => {
   try {
     const senderId = req.id;
     const recieverId = req.params.id;
-    // console.log("RecieverId: ",recieverId);
+
+    if (!mongoose.isValidObjectId(recieverId)) {
+      return res.status(400).json({ success: false, message: "Invalid recipient" });
+    }
+    if (recieverId === senderId) {
+      return res
+        .status(400)
+        .json({ success: false, message: "You cannot message yourself" });
+    }
+    const recipientExists = await User.exists({ _id: recieverId });
+    if (!recipientExists) {
+      return res.status(404).json({ success: false, message: "Recipient not found" });
+    }
 
     const { message, postId } = req.body;
     if (!postId && !(message && message.trim())) {
@@ -37,35 +48,36 @@ export const sendMessage = async (req, res) => {
         });
       }
     }
-    let conversation = await Conversation.findOne({
-      participants: { $all: [senderId, recieverId] },
-    });
-    if (!conversation) {
-      conversation = await Conversation.create({
-        participants: [senderId, recieverId],
-      });
-    }
+    // Atomic upsert keyed by the canonical pair key — two simultaneous first
+    // messages can no longer create duplicate conversation docs.
+    const conversation = await Conversation.findOneAndUpdate(
+      { key: conversationKey(senderId, recieverId) },
+      {
+        $setOnInsert: {
+          key: conversationKey(senderId, recieverId),
+          participants: [senderId, recieverId],
+        },
+      },
+      { upsert: true, new: true }
+    );
     const newMessage = await Message.create({
       senderId,
       recieverId,
       message,
       ...(postId ? { post: postId } : {}),
     });
-    if (newMessage) {
-      conversation.messages.push(newMessage._id);
-    }
-    // new message saved to conversation
-    await newMessage.save();
-    await conversation.save();
+    await Conversation.updateOne(
+      { _id: conversation._id },
+      { $push: { messages: newMessage._id } }
+    );
     if (newMessage.post) {
       await newMessage.populate(POST_POPULATE);
     }
 
-    //Socket.io integration for realtime messages
-    const recieverSocketId = getRecieverSocketId(recieverId);
-    if (recieverSocketId) {
-      io.to(recieverSocketId).emit('newMessage',newMessage)
-    } else if (isPushEnabled()) {
+    // Realtime delivery via the per-user room — routed across instances by the
+    // Redis adapter, so this must NOT be gated on the local presence map.
+    emitToUser(recieverId, "newMessage", newMessage);
+    if (!isUserOnline(recieverId) && isPushEnabled()) {
       // Recipient is offline — web push (fire-and-forget, never fails the send).
       try {
         const sender = await User.findById(senderId).select("username");
@@ -108,7 +120,12 @@ export const getMessage = async (req, res) => {
         { senderId: recieverId, recieverId: senderId },
       ],
     };
-    if (before) query._id = { $lt: before };
+    if (before) {
+      if (!mongoose.isValidObjectId(before)) {
+        return res.status(400).json({ success: false, message: "Invalid cursor" });
+      }
+      query._id = { $lt: before };
+    }
 
     // Opening the thread marks messages from the other user as read and
     // notifies them in realtime (read receipts).
@@ -117,8 +134,7 @@ export const getMessage = async (req, res) => {
       { $set: { read: true } }
     );
     if (nowRead.modifiedCount > 0) {
-      const otherSocketId = getRecieverSocketId(recieverId);
-      if (otherSocketId) io.to(otherSocketId).emit("messagesRead", { by: senderId });
+      emitToUser(recieverId, "messagesRead", { by: senderId });
     }
 
     const page = await Message.find(query)
