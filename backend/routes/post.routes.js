@@ -1,5 +1,5 @@
 import express from "express";
-import { addComment, addNewPost, bookmarkPost, deleteComment, deletePost, dislikePost, editPostCaption, getAllPost, getPostById, getPostComments, getPostsByHashtag, getUserPost, likePost, searchPosts, toggleCommentLike, votePoll } from '../controllers/post.controller.js';
+import { addComment, addNewPost, bookmarkPost, deleteComment, deletePost, dislikePost, editPostCaption, getAllPost, getExplorePosts, getPostById, getPostComments, getPostsByHashtag, getUserPost, likePost, searchPosts, toggleCommentLike, votePoll } from '../controllers/post.controller.js';
 import { isAuthenticated, optionalAuth } from "../middlewares/isAuthenticated.js";
 import Upload from '../middlewares/multer.js';
 
@@ -9,6 +9,7 @@ const router = express.Router();
 
 router.post('/addpost', isAuthenticated, Upload.single('image'), addNewPost);
 router.get('/all', optionalAuth, getAllPost);
+router.get('/explore', optionalAuth, getExplorePosts);
 router.get('/search', optionalAuth, searchPosts);
 router.get('/userpost/all', isAuthenticated, getUserPost);
 router.get('/tags/:tag', optionalAuth, getPostsByHashtag);

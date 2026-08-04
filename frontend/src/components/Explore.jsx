@@ -15,7 +15,8 @@ function Explore() {
     setLoading(true)
     setError(false)
     try {
-      const response = await axios.get('/api/v1/post/all?limit=30', { withCredentials: true })
+      // Engagement-ranked (gravity score), not just newest-first
+      const response = await axios.get('/api/v1/post/explore?limit=30', { withCredentials: true })
       if (response.data.success) {
         setPosts(response.data.posts || [])
       } else {
@@ -84,7 +85,7 @@ function Explore() {
                 </span>
                 <span className='flex items-center gap-1.5 text-white text-sm font-semibold'>
                   <MessageCircle size={20} fill='currentColor' />
-                  {post.comments?.length ?? 0}
+                  {post.commentsCount ?? post.comments?.length ?? 0}
                 </span>
               </div>
             </button>

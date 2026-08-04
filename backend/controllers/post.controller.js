@@ -282,6 +282,95 @@ export const getUserPost = async (req, res) => {
   }
 };
 
+// GET /api/v1/post/explore — engagement-ranked feed. Score is a classic
+// gravity formula over the Stage-2 edge collections:
+//   (3·likes + 2·comments + 1) / (ageHours + 2)^1.5
+// Candidate pool is the newest 500 visible posts, so ranking stays cheap.
+export const getExplorePosts = async (req, res) => {
+  try {
+    const limit = Math.min(parseInt(req.query.limit, 10) || 30, 60);
+    const match = {};
+    const hidden = await hiddenAuthorIds(req.id);
+    if (hidden) match.author = { $nin: hidden };
+
+    const posts = await Post.aggregate([
+      { $match: match },
+      { $sort: { _id: -1 } },
+      { $limit: 500 },
+      {
+        $lookup: {
+          from: "likes",
+          localField: "_id",
+          foreignField: "post",
+          as: "likeDocs",
+          pipeline: [{ $count: "n" }],
+        },
+      },
+      {
+        $lookup: {
+          from: "comments",
+          localField: "_id",
+          foreignField: "post",
+          as: "commentDocs",
+          pipeline: [{ $count: "n" }],
+        },
+      },
+      {
+        $addFields: {
+          likesCount: { $ifNull: [{ $arrayElemAt: ["$likeDocs.n", 0] }, 0] },
+          commentsCount: { $ifNull: [{ $arrayElemAt: ["$commentDocs.n", 0] }, 0] },
+          ageHours: {
+            $divide: [{ $subtract: ["$$NOW", "$createdAt"] }, 3600000],
+          },
+        },
+      },
+      {
+        $addFields: {
+          score: {
+            $divide: [
+              {
+                $add: [
+                  { $multiply: ["$likesCount", 3] },
+                  { $multiply: ["$commentsCount", 2] },
+                  1,
+                ],
+              },
+              { $pow: [{ $add: ["$ageHours", 2] }, 1.5] },
+            ],
+          },
+        },
+      },
+      { $sort: { score: -1, _id: -1 } },
+      { $limit: limit },
+      {
+        $lookup: {
+          from: "users",
+          localField: "author",
+          foreignField: "_id",
+          as: "author",
+          pipeline: [{ $project: { username: 1, profilePicture: 1 } }],
+        },
+      },
+      { $unwind: { path: "$author", preserveNullAndEmptyArrays: true } },
+      { $project: { embedding: 0, likes: 0, likeDocs: 0, commentDocs: 0, comments: 0 } },
+    ]);
+
+    // likedByMe for the viewer (counts already computed above)
+    const mine = req.id
+      ? await Like.find({ user: req.id, post: { $in: posts.map((p) => p._id) } })
+          .select("post")
+          .lean()
+      : [];
+    const mineSet = new Set(mine.map((l) => l.post.toString()));
+    for (const p of posts) p.likedByMe = mineSet.has(p._id.toString());
+
+    return res.status(200).json({ success: true, posts });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
 // GET /api/v1/post/tags/:tag — cursor-paginated posts carrying a hashtag
 export const getPostsByHashtag = async (req, res) => {
   try {
