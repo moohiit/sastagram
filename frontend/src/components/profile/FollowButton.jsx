@@ -11,11 +11,13 @@ import useRequireLogin from '@/hooks/useRequireLogin';
 // GET /api/v1/user/followorunfollow/:id contract and authSlice update.
 // Guests see the Follow button too — clicking it routes them to /login.
 // variant="link" renders the IG-sidebar textual blue link instead of a button.
-const FollowButton = ({ userId, className = '', variant = 'button' }) => {
+const FollowButton = ({ userId, className = '', variant = 'button', initialRequested = false }) => {
   const { user } = useSelector(store => store.auth);
   const dispatch = useDispatch();
   const requireLogin = useRequireLogin();
   const [loading, setLoading] = useState(false);
+  // Private accounts: a follow becomes a pending request ("Requested")
+  const [requested, setRequested] = useState(initialRequested);
 
   if (!userId || (user && user._id === userId)) return null;
   const isFollowing = user?.following?.includes(userId);
@@ -29,10 +31,15 @@ const FollowButton = ({ userId, className = '', variant = 'button' }) => {
         withCredentials: true,
       });
       if (response.data.success) {
-        const newFollowing = response.data.type === 'follow'
-          ? [...(user.following || []), userId]
-          : (user.following || []).filter(id => id !== userId);
-        dispatch(setAuthUser({ ...user, following: newFollowing }));
+        const { type } = response.data;
+        if (type === 'requested' || type === 'unrequested') {
+          setRequested(type === 'requested');
+        } else {
+          const newFollowing = type === 'follow'
+            ? [...(user.following || []), userId]
+            : (user.following || []).filter(id => id !== userId);
+          dispatch(setAuthUser({ ...user, following: newFollowing }));
+        }
         toast.success(response.data.message);
       }
     } catch (error) {
@@ -43,6 +50,9 @@ const FollowButton = ({ userId, className = '', variant = 'button' }) => {
     }
   };
 
+  const labelText = isFollowing ? 'Following' : requested ? 'Requested' : 'Follow';
+  const muted = isFollowing || requested;
+
   if (variant === 'link') {
     return (
       <button
@@ -50,10 +60,10 @@ const FollowButton = ({ userId, className = '', variant = 'button' }) => {
         onClick={followUnfollowHandler}
         disabled={loading}
         className={`text-xs font-semibold cursor-pointer disabled:opacity-50 ${
-          isFollowing ? 'text-zinc-400 hover:text-gray-100' : 'text-blue-400 hover:text-blue-300'
+          muted ? 'text-zinc-400 hover:text-gray-100' : 'text-blue-400 hover:text-blue-300'
         } ${className}`}
       >
-        {isFollowing ? 'Following' : 'Follow'}
+        {labelText}
       </button>
     );
   }
@@ -62,18 +72,12 @@ const FollowButton = ({ userId, className = '', variant = 'button' }) => {
     <Button
       onClick={followUnfollowHandler}
       disabled={loading}
-      variant={isFollowing ? 'secondary' : 'default'}
+      variant={muted ? 'secondary' : 'default'}
       className={`h-8 px-4 text-sm font-semibold ${
-        isFollowing ? 'text-gray-100' : 'bg-blue-500 hover:bg-blue-600 text-white'
+        muted ? 'text-gray-100' : 'bg-blue-500 hover:bg-blue-600 text-white'
       } ${className}`}
     >
-      {loading ? (
-        <Loader2 className='h-4 w-4 animate-spin' />
-      ) : isFollowing ? (
-        'Following'
-      ) : (
-        'Follow'
-      )}
+      {loading ? <Loader2 className='h-4 w-4 animate-spin' /> : labelText}
     </Button>
   );
 };

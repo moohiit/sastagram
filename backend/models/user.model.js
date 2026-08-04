@@ -14,6 +14,10 @@ const userSchema = new mongoose.Schema(
     posts: [{ type: mongoose.Schema.Types.ObjectId, ref: "Post" }],
     lastActiveAt: { type: Date },
     bookmarks: [{ type: mongoose.Schema.Types.ObjectId, ref: "Post" }],
+    // Private accounts require an accepted follow request to see posts
+    isPrivate: { type: Boolean, default: false },
+    // Users this account has blocked (small list; never exposed to others)
+    blocked: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
   },
   { timestamps: true }
 );

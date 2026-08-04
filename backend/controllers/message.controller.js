@@ -4,6 +4,7 @@ import { Message } from "../models/message.model.js";
 import { Post } from "../models/post.model.js";
 import { emitToUser, isUserOnline } from "../socket.io/socket.io.js";
 import { User } from "../models/user.model.js";
+import { isBlockedEitherWay } from "./user.controller.js";
 import { isPushEnabled, sendPushTo } from "../utils/webPush.js";
 
 // Shared-post population shape used everywhere a message is returned.
@@ -30,6 +31,9 @@ export const sendMessage = async (req, res) => {
     const recipientExists = await User.exists({ _id: recieverId });
     if (!recipientExists) {
       return res.status(404).json({ success: false, message: "Recipient not found" });
+    }
+    if (await isBlockedEitherWay(senderId, recieverId)) {
+      return res.status(403).json({ success: false, message: "You cannot message this user" });
     }
 
     const { message, postId } = req.body;

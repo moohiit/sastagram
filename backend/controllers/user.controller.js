@@ -6,7 +6,26 @@ import getDataUri from "../utils/datauri.js";
 import cloudinary from "../utils/cloudinary.js";
 import { Post } from "../models/post.model.js";
 import { Follow } from "../models/follow.model.js";
+import { FollowRequest } from "../models/followRequest.model.js";
+import { Comment } from "../models/comment.model.js";
+import { Like } from "../models/like.model.js";
+import { Notification } from "../models/notification.model.js";
+import { Story } from "../models/story.model.js";
+import { Message } from "../models/message.model.js";
+import { Conversation } from "../models/conversation.model.js";
+import { PushSubscription } from "../models/pushSubscription.model.js";
 import { notify } from "../utils/notify.js";
+
+// Either direction of a block makes the pair invisible to each other
+export const isBlockedEitherWay = async (a, b) => {
+  const users = await User.find({
+    $or: [
+      { _id: a, blocked: b },
+      { _id: b, blocked: a },
+    ],
+  }).select("_id");
+  return users.length > 0;
+};
 
 // Stage 2 (see MIGRATION.md): reads come from the Follow collection; the
 // embedded arrays are still dual-written as the rollback path.
@@ -202,6 +221,10 @@ export const getProfile = async (req, res) => {
     if (isOwnProfile) query = query.populate("bookmarks");
     const user = await query;
     if (user && !isOwnProfile) user.bookmarks = undefined;
+    // Blocked either way → the profile does not exist for this viewer
+    if (user && !isOwnProfile && req.id && (await isBlockedEitherWay(req.id, userId))) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
     let payload = user;
     if (user) {
       const [followersCount, followingCount] = await Promise.all([
@@ -209,6 +232,20 @@ export const getProfile = async (req, res) => {
         Follow.countDocuments({ follower: user._id }),
       ]);
       payload = { ...user.toObject(), followersCount, followingCount };
+      // Private accounts hide their posts from non-followers
+      if (user.isPrivate && !isOwnProfile) {
+        const isFollower = req.id
+          ? Boolean(await Follow.exists({ follower: req.id, following: userId }))
+          : false;
+        if (!isFollower) {
+          payload.postsCount = payload.posts?.length ?? 0;
+          payload.posts = [];
+          payload.restricted = true;
+          payload.requestedByMe = req.id
+            ? Boolean(await FollowRequest.exists({ from: req.id, to: userId }))
+            : false;
+        }
+      }
     }
     return res.status(200).json({
       user: payload,
@@ -236,11 +273,25 @@ export const searchProfile = async (req, res) => {
     if (user && user._id.toString() !== req.id) user.bookmarks = undefined;
     let payload = user;
     if (user) {
+      const isOwn = user._id.toString() === req.id;
+      if (!isOwn && req.id && (await isBlockedEitherWay(req.id, user._id))) {
+        return res.status(404).json({ success: false, message: "User not found" });
+      }
       const [followersCount, followingCount] = await Promise.all([
         Follow.countDocuments({ following: user._id }),
         Follow.countDocuments({ follower: user._id }),
       ]);
       payload = { ...user.toObject(), followersCount, followingCount };
+      if (user.isPrivate && !isOwn) {
+        const isFollower = req.id
+          ? Boolean(await Follow.exists({ follower: req.id, following: user._id }))
+          : false;
+        if (!isFollower) {
+          payload.postsCount = payload.posts?.length ?? 0;
+          payload.posts = [];
+          payload.restricted = true;
+        }
+      }
     }
     return res.status(200).json({
       user: payload,
@@ -376,6 +427,13 @@ export const followOrUnfollow = async (req, res) => {
         success: false,
       });
     }
+    // Blocks (either direction) sever the relationship entirely
+    if (await isBlockedEitherWay(userId, userToFollowOrUnfollowId)) {
+      return res.status(403).json({
+        message: "You cannot follow this user",
+        success: false,
+      });
+    }
     // Stage 2: the Follow collection is the read source of truth
     const isFollowing = Boolean(
       await Follow.exists({
@@ -383,6 +441,37 @@ export const followOrUnfollow = async (req, res) => {
         following: userToFollowOrUnfollowId,
       })
     );
+    // Private accounts: following goes through a request. A pending request
+    // toggles off (cancel) on a second tap.
+    if (!isFollowing && userToFollowOrUnfollow.isPrivate) {
+      const pending = await FollowRequest.findOneAndDelete({
+        from: userId,
+        to: userToFollowOrUnfollowId,
+      });
+      if (pending) {
+        return res.status(200).json({
+          message: "Follow request canceled",
+          type: "unrequested",
+          success: true,
+        });
+      }
+      await FollowRequest.updateOne(
+        { from: userId, to: userToFollowOrUnfollowId },
+        { $setOnInsert: { from: userId, to: userToFollowOrUnfollowId } },
+        { upsert: true }
+      );
+      await notify({
+        recipient: userToFollowOrUnfollowId,
+        sender: userId,
+        type: "follow_request",
+        text: "requested to follow you",
+      });
+      return res.status(200).json({
+        message: "Follow request sent",
+        type: "requested",
+        success: true,
+      });
+    }
     if (isFollowing) {
       // Unfollow the user
       await User.updateOne(
@@ -547,6 +636,275 @@ export const searchUsers = async (req, res) => {
       .select("username profilePicture bio")
       .limit(10);
     return res.status(200).json({ success: true, users });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+// ---------------------------------------------------------------------------
+// Account settings & privacy
+// ---------------------------------------------------------------------------
+
+// POST /api/v1/user/password/change
+export const changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (typeof currentPassword !== "string" || typeof newPassword !== "string") {
+      return res.status(400).json({ success: false, message: "Both passwords are required" });
+    }
+    if (newPassword.length < 8) {
+      return res.status(400).json({ success: false, message: "New password must be at least 8 characters" });
+    }
+    const user = await User.findById(req.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+    const matches = await bcrypt.compare(currentPassword, user.password);
+    if (!matches) {
+      return res.status(401).json({ success: false, message: "Current password is incorrect" });
+    }
+    user.password = await bcrypt.hash(newPassword, 10);
+    await user.save();
+    return res.status(200).json({ success: true, message: "Password updated" });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+// PATCH /api/v1/user/privacy { isPrivate } — switching to public auto-accepts
+// every pending follow request (IG behavior).
+export const setPrivacy = async (req, res) => {
+  try {
+    const { isPrivate } = req.body;
+    if (typeof isPrivate !== "boolean") {
+      return res.status(400).json({ success: false, message: "isPrivate must be a boolean" });
+    }
+    await User.updateOne({ _id: req.id }, { $set: { isPrivate } });
+    if (!isPrivate) {
+      const pending = await FollowRequest.find({ to: req.id });
+      for (const request of pending) {
+        await acceptRequestInternal(request);
+      }
+    }
+    return res.status(200).json({
+      success: true,
+      isPrivate,
+      message: isPrivate ? "Your account is now private" : "Your account is now public",
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+// Create the follow edge for an accepted request (Stage-2 collection write +
+// dual-written arrays), delete the request, and notify the requester.
+const acceptRequestInternal = async (request) => {
+  await Follow.updateOne(
+    { follower: request.from, following: request.to },
+    { $setOnInsert: { follower: request.from, following: request.to } },
+    { upsert: true }
+  );
+  await User.updateOne(
+    { _id: request.from },
+    { $addToSet: { following: request.to } },
+    { timestamps: false }
+  );
+  await User.updateOne(
+    { _id: request.to },
+    { $addToSet: { followers: request.from } },
+    { timestamps: false }
+  );
+  await FollowRequest.deleteOne({ _id: request._id });
+  await notify({
+    recipient: request.from,
+    sender: request.to,
+    type: "follow",
+    text: "accepted your follow request",
+  });
+};
+
+// GET /api/v1/user/follow-requests — incoming requests, newest first
+export const getFollowRequests = async (req, res) => {
+  try {
+    const requests = await FollowRequest.find({ to: req.id })
+      .sort({ _id: -1 })
+      .limit(100)
+      .populate("from", "username profilePicture bio");
+    return res.status(200).json({
+      success: true,
+      requests: requests
+        .filter((r) => r.from)
+        .map((r) => ({ _id: r._id, from: r.from, createdAt: r.createdAt })),
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+// POST /api/v1/user/follow-requests/:id/accept
+export const acceptFollowRequest = async (req, res) => {
+  try {
+    const request = await FollowRequest.findOne({ _id: req.params.id, to: req.id });
+    if (!request) {
+      return res.status(404).json({ success: false, message: "Request not found" });
+    }
+    await acceptRequestInternal(request);
+    return res.status(200).json({ success: true, message: "Follow request accepted" });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+// POST /api/v1/user/follow-requests/:id/decline
+export const declineFollowRequest = async (req, res) => {
+  try {
+    const request = await FollowRequest.findOneAndDelete({ _id: req.params.id, to: req.id });
+    if (!request) {
+      return res.status(404).json({ success: false, message: "Request not found" });
+    }
+    return res.status(200).json({ success: true, message: "Follow request declined" });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+// POST /api/v1/user/block/:id — blocking severs the relationship both ways
+export const blockUser = async (req, res) => {
+  try {
+    const targetId = req.params.id;
+    if (!mongoose.isValidObjectId(targetId) || targetId === req.id) {
+      return res.status(400).json({ success: false, message: "Invalid user" });
+    }
+    const target = await User.exists({ _id: targetId });
+    if (!target) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+    await User.updateOne({ _id: req.id }, { $addToSet: { blocked: targetId } });
+    // Remove every follow edge and pending request in both directions
+    await Promise.all([
+      Follow.deleteMany({
+        $or: [
+          { follower: req.id, following: targetId },
+          { follower: targetId, following: req.id },
+        ],
+      }),
+      FollowRequest.deleteMany({
+        $or: [
+          { from: req.id, to: targetId },
+          { from: targetId, to: req.id },
+        ],
+      }),
+      User.updateOne(
+        { _id: req.id },
+        { $pull: { following: targetId, followers: targetId } },
+        { timestamps: false }
+      ),
+      User.updateOne(
+        { _id: targetId },
+        { $pull: { following: req.id, followers: req.id } },
+        { timestamps: false }
+      ),
+    ]);
+    return res.status(200).json({ success: true, message: "User blocked" });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+// POST /api/v1/user/unblock/:id
+export const unblockUser = async (req, res) => {
+  try {
+    const targetId = req.params.id;
+    if (!mongoose.isValidObjectId(targetId)) {
+      return res.status(400).json({ success: false, message: "Invalid user" });
+    }
+    await User.updateOne({ _id: req.id }, { $pull: { blocked: targetId } });
+    return res.status(200).json({ success: true, message: "User unblocked" });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+// GET /api/v1/user/blocked
+export const getBlockedUsers = async (req, res) => {
+  try {
+    const user = await User.findById(req.id).populate(
+      "blocked",
+      "username profilePicture bio"
+    );
+    return res.status(200).json({ success: true, blocked: user?.blocked || [] });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+// DELETE /api/v1/user/account { password } — permanent, removes all user data
+export const deleteAccount = async (req, res) => {
+  try {
+    const { password } = req.body || {};
+    if (typeof password !== "string") {
+      return res.status(400).json({ success: false, message: "Password is required" });
+    }
+    const user = await User.findById(req.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+    const matches = await bcrypt.compare(password, user.password);
+    if (!matches) {
+      return res.status(401).json({ success: false, message: "Password is incorrect" });
+    }
+
+    const userId = user._id;
+    const posts = await Post.find({ author: userId }).select("_id image");
+    const postIds = posts.map((p) => p._id);
+
+    // Best-effort Cloudinary cleanup — never blocks the deletion
+    for (const post of posts) {
+      try {
+        const publicId = post.image.split("/").pop().split(".")[0];
+        if (publicId) await cloudinary.uploader.destroy(publicId);
+      } catch (e) {
+        console.error("Cloudinary cleanup failed:", e.message);
+      }
+    }
+
+    await Promise.all([
+      Post.deleteMany({ author: userId }),
+      Comment.deleteMany({ $or: [{ author: userId }, { post: { $in: postIds } }] }),
+      Like.deleteMany({ $or: [{ user: userId }, { post: { $in: postIds } }] }),
+      Follow.deleteMany({ $or: [{ follower: userId }, { following: userId }] }),
+      FollowRequest.deleteMany({ $or: [{ from: userId }, { to: userId }] }),
+      Notification.deleteMany({ $or: [{ recipient: userId }, { sender: userId }] }),
+      Story.deleteMany({ author: userId }),
+      Message.deleteMany({ $or: [{ senderId: userId }, { recieverId: userId }] }),
+      Conversation.deleteMany({ participants: userId }),
+      PushSubscription.deleteMany({ user: userId }),
+      User.updateMany({ blocked: userId }, { $pull: { blocked: userId } }),
+      User.updateMany(
+        { $or: [{ following: userId }, { followers: userId }] },
+        { $pull: { following: userId, followers: userId } },
+        { timestamps: false }
+      ),
+      User.updateMany(
+        { bookmarks: { $in: postIds } },
+        { $pull: { bookmarks: { $in: postIds } } }
+      ),
+    ]);
+    await User.deleteOne({ _id: userId });
+
+    return res
+      .cookie("token", "", { maxAge: 0 })
+      .status(200)
+      .json({ success: true, message: "Account deleted" });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ success: false, message: "Internal server error" });
