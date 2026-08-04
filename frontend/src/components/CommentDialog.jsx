@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from './ui/dialog'
 import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar'
-import { Trash2 } from 'lucide-react'
+import { Heart, Trash2, X } from 'lucide-react'
 import { cdn } from '@/lib/cdn'
 import { timeAgo } from '@/lib/utils'
 import { updatePostById } from '@/redux/postSlice'
@@ -26,6 +26,7 @@ function CommentDialog({ open, setOpen, post }) {
   const comments = localComments
 
   const [comment, setComment] = useState('')
+  const [replyTo, setReplyTo] = useState(null) // comment being replied to
 
   // The feed only carries a capped comment preview — load the full thread
   // when the dialog opens.
@@ -72,7 +73,7 @@ function CommentDialog({ open, setOpen, post }) {
     try {
       const response = await axios.post(
         `/api/v1/post/${post._id}/comment`,
-        { text, force },
+        { text, force, ...(replyTo ? { parentId: replyTo._id } : {}) },
         { withCredentials: true }
       )
       if (response.data.flagged) {
@@ -85,6 +86,7 @@ function CommentDialog({ open, setOpen, post }) {
       if (response.data.success) {
         syncComments([...comments, response.data.comment])
         setComment('')
+        setReplyTo(null)
       }
     } catch (error) {
       console.error(error)
@@ -99,12 +101,37 @@ function CommentDialog({ open, setOpen, post }) {
         withCredentials: true,
       })
       if (response.data.success) {
-        syncComments(comments.filter((cmnt) => cmnt._id !== response.data.commentId))
+        // Server removes the comment plus its replies
+        const removed = new Set(response.data.removedIds || [response.data.commentId])
+        syncComments(comments.filter((cmnt) => !removed.has(cmnt._id)))
         toast.success('Comment deleted')
       }
     } catch (error) {
       console.error(error)
       toast.error(error.response?.data?.message || 'Failed to delete comment')
+    }
+  }
+
+  const toggleCommentLike = async (target) => {
+    if (!requireLogin()) return
+    try {
+      const response = await axios.post(
+        `/api/v1/post/comment/${target._id}/like`,
+        {},
+        { withCredentials: true }
+      )
+      if (response.data.success) {
+        setLocalComments((prev) =>
+          prev.map((c) =>
+            c._id === target._id
+              ? { ...c, likedByMe: response.data.liked, likesCount: response.data.likesCount }
+              : c
+          )
+        )
+      }
+    } catch (error) {
+      console.error(error)
+      toast.error(error.response?.data?.message || 'Could not like comment')
     }
   }
 
@@ -166,40 +193,92 @@ function CommentDialog({ open, setOpen, post }) {
                 </p>
               )}
 
-              {comments.map((cmnt, index) => (
-                <div key={cmnt._id || index} className='flex gap-3 group'>
-                  <Link to={`/profile/${cmnt.author?._id}`} className='shrink-0'>
-                    <Avatar className='h-8 w-8'>
-                      <AvatarImage src={cmnt.author?.profilePicture} alt={cmnt.author?.username} />
-                      <AvatarFallback>{fallbackInitials(cmnt.author?.username)}</AvatarFallback>
-                    </Avatar>
-                  </Link>
-                  <div className='flex-1 min-w-0'>
-                    <p className='text-sm text-gray-100 break-words'>
-                      <Link
-                        to={`/profile/${cmnt.author?._id}`}
-                        className='font-semibold mr-1.5 hover:opacity-70'
-                      >
-                        {cmnt.author?.username || 'Anonymous'}
-                      </Link>
-                      <RichText text={cmnt.text} />
-                    </p>
-                    <span className='text-xs text-zinc-500'>{timeAgo(cmnt.createdAt)}</span>
-                  </div>
-                  {user && (cmnt.author?._id === user._id || post.author?._id === user._id) && (
+              {(() => {
+                const topLevel = comments.filter((c) => !c.parent)
+                const repliesFor = (id) => comments.filter((c) => c.parent === id)
+                const renderRow = (cmnt, isReply) => (
+                  <div key={cmnt._id} className={`flex gap-3 group ${isReply ? 'ml-10' : ''}`}>
+                    <Link to={`/profile/${cmnt.author?._id}`} className='shrink-0'>
+                      <Avatar className={isReply ? 'h-6 w-6' : 'h-8 w-8'}>
+                        <AvatarImage src={cmnt.author?.profilePicture} alt={cmnt.author?.username} />
+                        <AvatarFallback>{fallbackInitials(cmnt.author?.username)}</AvatarFallback>
+                      </Avatar>
+                    </Link>
+                    <div className='flex-1 min-w-0'>
+                      <p className='text-sm text-gray-100 break-words'>
+                        <Link
+                          to={`/profile/${cmnt.author?._id}`}
+                          className='font-semibold mr-1.5 hover:opacity-70'
+                        >
+                          {cmnt.author?.username || 'Anonymous'}
+                        </Link>
+                        <RichText text={cmnt.text} />
+                      </p>
+                      <div className='flex items-center gap-3 text-xs text-zinc-500'>
+                        <span>{timeAgo(cmnt.createdAt)}</span>
+                        {(cmnt.likesCount ?? 0) > 0 && (
+                          <span>{cmnt.likesCount} {cmnt.likesCount === 1 ? 'like' : 'likes'}</span>
+                        )}
+                        {user && (
+                          <button
+                            onClick={() => {
+                              setReplyTo(cmnt)
+                              setComment(`@${cmnt.author?.username} `)
+                            }}
+                            className='font-semibold hover:text-gray-100 cursor-pointer'
+                          >
+                            Reply
+                          </button>
+                        )}
+                      </div>
+                    </div>
                     <button
-                      onClick={() => deleteCommentHandler(cmnt._id)}
-                      title='Delete comment'
-                      className='text-zinc-500 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity self-start p-1 cursor-pointer'
+                      onClick={() => toggleCommentLike(cmnt)}
+                      title={cmnt.likedByMe ? 'Unlike' : 'Like'}
+                      className='self-start p-1 cursor-pointer'
                     >
-                      <Trash2 className='w-4 h-4' />
+                      <Heart
+                        className={`w-3.5 h-3.5 ${
+                          cmnt.likedByMe ? 'text-red-500 fill-red-500' : 'text-zinc-500 hover:text-gray-100'
+                        }`}
+                      />
                     </button>
-                  )}
-                </div>
-              ))}
+                    {user && (cmnt.author?._id === user._id || post.author?._id === user._id) && (
+                      <button
+                        onClick={() => deleteCommentHandler(cmnt._id)}
+                        title='Delete comment'
+                        className='text-zinc-500 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity self-start p-1 cursor-pointer'
+                      >
+                        <Trash2 className='w-4 h-4' />
+                      </button>
+                    )}
+                  </div>
+                )
+                return topLevel.map((cmnt) => (
+                  <React.Fragment key={cmnt._id}>
+                    {renderRow(cmnt, false)}
+                    {repliesFor(cmnt._id).map((reply) => renderRow(reply, true))}
+                  </React.Fragment>
+                ))
+              })()}
             </div>
 
             {/* Add comment */}
+            {replyTo && (
+              <div className='flex items-center justify-between border-t border-zinc-800 px-3 py-1.5 text-xs text-zinc-400'>
+                <span>Replying to @{replyTo.author?.username}</span>
+                <button
+                  onClick={() => {
+                    setReplyTo(null)
+                    setComment('')
+                  }}
+                  className='p-1 cursor-pointer hover:text-gray-100'
+                  title='Cancel reply'
+                >
+                  <X className='w-3.5 h-3.5' />
+                </button>
+              </div>
+            )}
             <div className='flex items-center gap-2 border-t border-zinc-800 p-3'>
               <input
                 type='text'

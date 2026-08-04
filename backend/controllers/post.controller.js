@@ -174,6 +174,7 @@ export const getAllPost = async (req, res) => {
       })
       .populate({
         path: "comments",
+        select: "-likes",
         options: { sort: { createdAt: -1 }, perDocumentLimit: 3 },
         populate: {
           path: "author",
@@ -321,7 +322,12 @@ export const likePost = async (req, res) => {
     //like logic (atomic — no extra save needed). modifiedCount tells us
     //whether this request actually added the like, so re-likes can't spam
     //the author with duplicate notifications.
-    const likeResult = await post.updateOne({ $addToSet: { likes: likerId } });
+    // timestamps:false — otherwise mongoose's automatic updatedAt $set makes
+    // modifiedCount 1 even when the like already existed
+    const likeResult = await post.updateOne(
+      { $addToSet: { likes: likerId } },
+      { timestamps: false }
+    );
     // Stage-1 dual-write to the Like collection (see MIGRATION.md). The array
     // stays authoritative — never fail the request if this write fails.
     try {
@@ -399,13 +405,25 @@ export const addComment = async (req, res) => {
   try {
     const commenterId = req.id;
     const postId = req.params.id;
-    const { text, force } = req.body;
+    const { text, force, parentId } = req.body;
 
     if (!text) {
       return res.status(400).json({
         message: "Comment required",
         success: false,
       });
+    }
+    // One-level threading: a reply to a reply attaches to the top-level parent
+    let parent = null;
+    if (parentId) {
+      if (!mongoose.isValidObjectId(parentId)) {
+        return res.status(400).json({ message: "Invalid parent comment", success: false });
+      }
+      parent = await Comment.findById(parentId);
+      if (!parent || parent.post.toString() !== postId) {
+        return res.status(404).json({ message: "Parent comment not found", success: false });
+      }
+      if (parent.parent) parent = await Comment.findById(parent.parent);
     }
 
     // Soft moderation: flag potentially hurtful comments once; the client may
@@ -431,6 +449,7 @@ export const addComment = async (req, res) => {
       text,
       author: commenterId,
       post: postId,
+      parent: parent?._id || null,
     });
 
     const populatedComment = await comment.populate({
@@ -438,10 +457,10 @@ export const addComment = async (req, res) => {
       select: "username profilePicture",
     });
 
-    post.comments.push(comment._id);
-    await post.save();
+    await Post.updateOne({ _id: postId }, { $push: { comments: comment._id } });
 
-    // Persisted + realtime notification, plus @mention notifications
+    // Persisted + realtime notifications: post author, replied-to author,
+    // and any @mentions
     await notify({
       recipient: post.author,
       sender: commenterId,
@@ -449,11 +468,25 @@ export const addComment = async (req, res) => {
       post: postId,
       text,
     });
+    if (parent && parent.author.toString() !== post.author.toString()) {
+      await notify({
+        recipient: parent.author,
+        sender: commenterId,
+        type: "comment",
+        post: postId,
+        text: `replied: ${text}`,
+      });
+    }
     notifyMentions({ text, sender: commenterId, post: postId });
+
+    const payload = populatedComment.toObject();
+    delete payload.likes;
+    payload.likesCount = 0;
+    payload.likedByMe = false;
     return res.status(201).json({
       message: "Comment added successfully",
       success: true,
-      comment: populatedComment,
+      comment: payload,
     });
   } catch (error) {
     console.log(error);
@@ -479,11 +512,22 @@ export const getPostComments = async (req, res) => {
       });
     }
 
+    // Expose like counts/flags, never the id arrays
+    const shaped = comments.map((c) => {
+      const obj = c.toObject();
+      obj.likesCount = c.likes?.length || 0;
+      obj.likedByMe = req.id
+        ? Boolean(c.likes?.some((id) => id.toString() === req.id))
+        : false;
+      delete obj.likes;
+      return obj;
+    });
+
     //return the response
     return res.status(200).json({
       message: "Comments fetched successfully",
       success: true,
-      comments,
+      comments: shaped,
     });
   } catch (error) {
     console.log(error);
@@ -578,7 +622,8 @@ export const bookmarkPost = async (req, res) => {
     // read-modify-write, so concurrent requests can't clobber the array.
     const added = await User.updateOne(
       { _id: userId },
-      { $addToSet: { bookmarks: post._id } }
+      { $addToSet: { bookmarks: post._id } },
+      { timestamps: false }
     );
     if (added.modifiedCount > 0) {
       return res.status(200).json({
@@ -640,11 +685,61 @@ export const deleteComment = async (req, res) => {
     if (!isCommentAuthor && !isPostOwner) {
       return res.status(403).json({ message: "You are not authorized to delete this comment", success: false });
     }
-    await Comment.findByIdAndDelete(comment._id);
+    // Delete the comment plus its replies, and detach all of them from the post
+    const replies = await Comment.find({ parent: comment._id }).select("_id");
+    const removedIds = [comment._id, ...replies.map((r) => r._id)];
+    await Comment.deleteMany({ _id: { $in: removedIds } });
     if (post) {
-      await post.updateOne({ $pull: { comments: comment._id } });
+      await post.updateOne({ $pull: { comments: { $in: removedIds } } });
     }
-    return res.status(200).json({ message: "Comment deleted", success: true, commentId: comment._id });
+    return res.status(200).json({
+      message: "Comment deleted",
+      success: true,
+      commentId: comment._id,
+      removedIds,
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: "Internal server error" });
+  }
+};
+
+// Toggle a like on a comment (POST /comment/:commentId/like)
+export const toggleCommentLike = async (req, res) => {
+  try {
+    const { commentId } = req.params;
+    if (!mongoose.isValidObjectId(commentId)) {
+      return res.status(400).json({ success: false, message: "Invalid comment id" });
+    }
+    const comment = await Comment.findById(commentId);
+    if (!comment) {
+      return res.status(404).json({ success: false, message: "Comment not found" });
+    }
+    // Atomic toggle: try to add; if nothing changed it was already liked.
+    // timestamps:false so the automatic updatedAt $set can't fake a change.
+    const added = await Comment.updateOne(
+      { _id: commentId },
+      { $addToSet: { likes: req.id } },
+      { timestamps: false }
+    );
+    const liked = added.modifiedCount > 0;
+    if (!liked) {
+      await Comment.updateOne({ _id: commentId }, { $pull: { likes: req.id } });
+    } else {
+      await notify({
+        recipient: comment.author,
+        sender: req.id,
+        type: "like",
+        post: comment.post,
+        text: "liked your comment",
+      });
+    }
+    const fresh = await Comment.findById(commentId).select("likes");
+    return res.status(200).json({
+      success: true,
+      liked,
+      likesCount: fresh?.likes?.length || 0,
+    });
   } catch (error) {
     console.error(error);
     return res.status(500).json({ success: false, message: "Internal server error" });

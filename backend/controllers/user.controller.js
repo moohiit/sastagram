@@ -416,7 +416,10 @@ export const followOrUnfollow = async (req, res) => {
       // notification fires exactly once.
       const addResult = await User.updateOne(
         { _id: userId },
-        { $addToSet: { following: userToFollowOrUnfollowId } }
+        { $addToSet: { following: userToFollowOrUnfollowId } },
+        // timestamps:false — the automatic updatedAt $set would make
+        // modifiedCount 1 even for an already-existing edge
+        { timestamps: false }
       );
       await User.updateOne(
         { _id: userToFollowOrUnfollowId },
