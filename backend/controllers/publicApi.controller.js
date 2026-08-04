@@ -68,7 +68,7 @@ export const listPublicPosts = async (req, res) => {
     const posts = await Post.find(query)
       .sort({ _id: -1 })
       .limit(limit + 1)
-      .select("caption image altText likes comments createdAt author")
+      .select("caption image altText comments createdAt author")
       .populate({ path: "author", select: "username profilePicture" });
 
     const hasMore = posts.length > limit;
@@ -98,7 +98,7 @@ export const getPublicPost = async (req, res) => {
         .json({ success: false, message: "Post not found" });
     }
     const post = await Post.findById(id)
-      .select("caption image altText likes comments createdAt author")
+      .select("caption image altText comments createdAt author")
       .populate({ path: "author", select: "username profilePicture isPrivate" });
     if (!post || post.author?.isPrivate) {
       return res
@@ -218,7 +218,7 @@ export const searchPublicPosts = async (req, res) => {
     const posts = await Post.find(textQuery)
       .sort({ _id: -1 })
       .limit(MAX_LIMIT)
-      .select("caption image altText likes comments createdAt author")
+      .select("caption image altText comments createdAt author")
       .populate({ path: "author", select: "username profilePicture" });
     const likeCounts = await likeCountsFor(posts);
     return res.status(200).json({

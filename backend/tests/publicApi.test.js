@@ -41,11 +41,10 @@ describe('GET /api/public/v1/posts', () => {
   it('returns the public shape only — counts, no likes/comments/embedding arrays', async () => {
     await Post.deleteMany({});
     const post = await makePost('shape check', {
-      likes: [liker.user._id],
       embedding: [0.1, 0.2, 0.3],
       altText: 'a test image',
     });
-    // Stage 2: like counts are read from the Like collection
+    // Like counts are read from the Like collection (Stage 3)
     await Like.create({ user: liker.user._id, post: post._id });
     const comment = await Comment.create({
       text: 'internal comment body',

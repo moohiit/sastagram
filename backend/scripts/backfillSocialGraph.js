@@ -5,8 +5,9 @@
 //   User.following[]  -> Follow { follower, following }
 //
 // Idempotent: every write is an upsert keyed by the unique compound index, so
-// the script can be re-run safely at any time. Arrays remain authoritative;
-// this script only adds documents.
+// the script can be re-run safely at any time. Reads the raw array fields via
+// lean() projections, so it keeps working even after Stage 3 removed the
+// fields from the schemas (run it BEFORE migrate:drop-social-arrays).
 //
 // Usage: npm run migrate:social-graph  (requires MONGO_URI in .env)
 import "dotenv/config";

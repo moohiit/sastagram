@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import request from 'supertest';
 import app from '../app.js';
 import { Post } from '../models/post.model.js';
+import { Like } from '../models/like.model.js';
 import { createUserAndLogin } from './helpers.js';
 
 let author; // { cookie, user }
@@ -59,15 +60,14 @@ describe('like / dislike', () => {
       .set('Cookie', other.cookie);
     expect(like.status).toBe(200);
     expect(like.body.success).toBe(true);
-    let fresh = await Post.findById(post._id);
-    expect(fresh.likes.map(String)).toContain(other.user._id);
+    // Stage 3: likes live in the Like collection only
+    expect(await Like.countDocuments({ post: post._id, user: other.user._id })).toBe(1);
 
     const dislike = await request(app)
       .get(`/api/v1/post/${post._id}/dislike`)
       .set('Cookie', other.cookie);
     expect(dislike.status).toBe(200);
-    fresh = await Post.findById(post._id);
-    expect(fresh.likes.map(String)).not.toContain(other.user._id);
+    expect(await Like.countDocuments({ post: post._id, user: other.user._id })).toBe(0);
   });
 });
 

@@ -11,7 +11,8 @@
     "start": "node backend/server.js",
     "test": "vitest run",
     "migrate:social-graph": "node backend/scripts/backfillSocialGraph.js",
-    "migrate:hashtags": "node backend/scripts/backfillHashtags.js"
+    "migrate:hashtags": "node backend/scripts/backfillHashtags.js",
+    "migrate:drop-social-arrays": "node backend/scripts/dropSocialGraphArrays.js"
   },
   "keywords": [],
   "author": "Mohit Patel",
