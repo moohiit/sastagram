@@ -10,6 +10,14 @@ const conversationSchema = new mongoose.Schema(
     isGroup: { type: Boolean, default: false },
     name: { type: String, default: "" },
     admin: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    // Per-member read stamps (groups): unread = messages newer than my stamp
+    reads: [
+      {
+        _id: false,
+        user: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+        at: { type: Date },
+      },
+    ],
     participants: [
       {
         type: mongoose.Schema.Types.ObjectId,

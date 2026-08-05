@@ -400,17 +400,29 @@ export const getGroups = async (req, res) => {
     const lastMessages = await Message.aggregate([
       { $match: { conversation: { $in: groups.map((g) => g._id) } } },
       { $sort: { _id: -1 } },
-      { $group: { _id: "$conversation", message: { $first: "$message" }, senderId: { $first: "$senderId" }, createdAt: { $first: "$createdAt" }, deleted: { $first: "$deleted" } } },
+      { $group: { _id: "$conversation", message: { $first: "$message" }, post: { $first: "$post" }, senderId: { $first: "$senderId" }, createdAt: { $first: "$createdAt" }, deleted: { $first: "$deleted" } } },
     ]);
     const lastByGroup = new Map(lastMessages.map((m) => [m._id.toString(), m]));
-    const payload = groups.map((g) => {
+    // Unread per group: messages from others newer than my read stamp
+    const unreadCounts = await Promise.all(
+      groups.map((g) => {
+        const myRead = (g.reads || []).find((r) => r.user.toString() === req.id);
+        return Message.countDocuments({
+          conversation: g._id,
+          senderId: { $ne: req.id },
+          ...(myRead ? { createdAt: { $gt: myRead.at } } : {}),
+        });
+      })
+    );
+    const payload = groups.map((g, i) => {
       const last = lastByGroup.get(g._id.toString());
-      const { messages, ...rest } = g;
+      const { messages, reads, ...rest } = g;
       return {
         ...rest,
-        lastMessage: last ? (last.deleted ? "Message unsent" : last.message) : "",
+        lastMessage: last ? (last.deleted ? "Message unsent" : last.message || (last.post ? "Shared a post" : "")) : "",
         lastMessageAt: last?.createdAt || g.updatedAt,
         lastSenderId: last?.senderId || null,
+        unread: unreadCounts[i],
       };
     });
     return res.status(200).json({ success: true, groups: payload });
@@ -425,20 +437,27 @@ export const sendGroupMessage = async (req, res) => {
   try {
     const { group, error } = await loadGroupForMember(req.params.groupId, req.id);
     if (error) return res.status(error[0]).json({ success: false, message: error[1] });
-    const { message } = req.body || {};
-    if (!(message && message.trim())) {
-      return res.status(400).json({ success: false, message: "Message text is required" });
+    const { message, postId } = req.body || {};
+    if (!postId && !(message && message.trim())) {
+      return res.status(400).json({ success: false, message: "Message text or a shared post is required" });
+    }
+    if (postId) {
+      if (!mongoose.isValidObjectId(postId) || !(await Post.exists({ _id: postId }))) {
+        return res.status(404).json({ success: false, message: "Post not found" });
+      }
     }
     const newMessage = await Message.create({
       senderId: req.id,
       conversation: group._id,
-      message: message.trim(),
+      message: (message || "").trim(),
+      ...(postId ? { post: postId } : {}),
     });
     await Conversation.updateOne(
       { _id: group._id },
       { $push: { messages: newMessage._id } }
     );
     await newMessage.populate("senderId", "username profilePicture");
+    if (newMessage.post) await newMessage.populate(POST_POPULATE);
     for (const member of group.participants) {
       emitToUser(member.toString(), "newGroupMessage", {
         conversationId: group._id,
@@ -466,10 +485,26 @@ export const getGroupMessages = async (req, res) => {
       }
       query._id = { $lt: before };
     }
+    // Opening the thread stamps my read marker (powers the unread badge)
+    await Conversation.updateOne(
+      { _id: group._id, "reads.user": req.id },
+      { $set: { "reads.$.at": new Date() } },
+      { timestamps: false }
+    ).then(async (r) => {
+      if (r.matchedCount === 0) {
+        await Conversation.updateOne(
+          { _id: group._id },
+          { $push: { reads: { user: req.id, at: new Date() } } },
+          { timestamps: false }
+        );
+      }
+    });
+
     const page = await Message.find(query)
       .sort({ _id: -1 })
       .limit(limit + 1)
-      .populate("senderId", "username profilePicture");
+      .populate("senderId", "username profilePicture")
+      .populate(POST_POPULATE);
     const hasMore = page.length > limit;
     if (hasMore) page.pop();
     page.reverse();

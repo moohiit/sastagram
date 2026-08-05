@@ -109,3 +109,51 @@ describe('group chats', () => {
     expect(await Conversation.findById(groupId)).toBeNull();
   });
 });
+
+describe('group unread counts and shared posts', () => {
+  it('tracks unread per member and resets on open; posts can be shared', async () => {
+    const created = await createGroup();
+    const groupId = created.body.group._id;
+
+    await request(app)
+      .post(`/api/v1/message/group/${groupId}/send`)
+      .set('Cookie', ada.cookie)
+      .send({ message: 'one' })
+      .expect(201);
+    await request(app)
+      .post(`/api/v1/message/group/${groupId}/send`)
+      .set('Cookie', ada.cookie)
+      .send({ message: 'two' })
+      .expect(201);
+
+    // bo has 2 unread; ada (the sender) has 0
+    let groups = await request(app).get('/api/v1/message/group').set('Cookie', bo.cookie);
+    expect(groups.body.groups.find((g) => g._id === groupId).unread).toBe(2);
+    groups = await request(app).get('/api/v1/message/group').set('Cookie', ada.cookie);
+    expect(groups.body.groups.find((g) => g._id === groupId).unread).toBe(0);
+
+    // Opening the thread stamps bo's read marker
+    await request(app).get(`/api/v1/message/group/${groupId}`).set('Cookie', bo.cookie).expect(200);
+    groups = await request(app).get('/api/v1/message/group').set('Cookie', bo.cookie);
+    expect(groups.body.groups.find((g) => g._id === groupId).unread).toBe(0);
+
+    // Share a post into the group
+    const { Post } = await import('../models/post.model.js');
+    const post = await Post.create({
+      caption: 'group share',
+      image: 'https://example.com/g.jpg',
+      author: ada.user._id,
+    });
+    const shared = await request(app)
+      .post(`/api/v1/message/group/${groupId}/send`)
+      .set('Cookie', cy.cookie)
+      .send({ postId: post._id.toString() });
+    expect(shared.status).toBe(201);
+    expect(shared.body.newMessage.post._id).toBe(post._id.toString());
+
+    groups = await request(app).get('/api/v1/message/group').set('Cookie', bo.cookie);
+    const row = groups.body.groups.find((g) => g._id === groupId);
+    expect(row.lastMessage).toBe('Shared a post');
+    expect(row.unread).toBe(1);
+  });
+});

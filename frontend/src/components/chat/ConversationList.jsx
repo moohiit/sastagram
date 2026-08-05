@@ -62,7 +62,8 @@ const ConversationList = ({ onSelect, selectedUserId, onSelectGroup, activeGroup
   const [newGroupOpen, setNewGroupOpen] = useState(false);
   const [groups, setGroups] = useState([]);
 
-  // Groups list — refreshed on any group-related socket event
+  // Groups list — refreshed on any group-related socket event and shortly
+  // after opening a group (the thread fetch stamps the read marker).
   useEffect(() => {
     let cancelled = false;
     const fetchGroups = async () => {
@@ -74,18 +75,21 @@ const ConversationList = ({ onSelect, selectedUserId, onSelectGroup, activeGroup
       }
     };
     fetchGroups();
-    if (!socket) return () => { cancelled = true; };
+    let refreshTimer;
+    if (activeGroupId) refreshTimer = setTimeout(fetchGroups, 1200);
+    if (!socket) return () => { cancelled = true; clearTimeout(refreshTimer); };
     const refresh = () => fetchGroups();
     socket.on('groupCreated', refresh);
     socket.on('groupUpdated', refresh);
     socket.on('newGroupMessage', refresh);
     return () => {
       cancelled = true;
+      clearTimeout(refreshTimer);
       socket.off('groupCreated', refresh);
       socket.off('groupUpdated', refresh);
       socket.off('newGroupMessage', refresh);
     };
-  }, [socket]);
+  }, [socket, activeGroupId]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -160,6 +164,11 @@ const ConversationList = ({ onSelect, selectedUserId, onSelectGroup, activeGroup
                     )}
                   </div>
                 </div>
+                {g.unread > 0 && g._id !== activeGroupId && (
+                  <span className='shrink-0 min-w-[18px] h-[18px] px-1 flex items-center justify-center rounded-full bg-red-500 text-white text-[11px] font-semibold leading-none'>
+                    {g.unread > 99 ? '99+' : g.unread}
+                  </span>
+                )}
               </div>
             ))}
           </div>

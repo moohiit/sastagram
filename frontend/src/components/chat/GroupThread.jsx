@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { useSelector } from 'react-redux';
+import { Link } from 'react-router-dom';
 import { ChevronLeft, Loader2, LogOut, Users } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { Input } from '../ui/input';
@@ -18,7 +19,10 @@ const GroupThread = ({ groupId, onBack, onLeft }) => {
   const [loading, setLoading] = useState(true);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
+  const [typers, setTypers] = useState({}); // userId -> true
   const containerRef = useRef(null);
+  const lastTypingEmitRef = useRef(0);
+  const stopTypingTimerRef = useRef(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -52,9 +56,40 @@ const GroupThread = ({ groupId, onBack, onLeft }) => {
         prev.some((m) => m._id === message._id) ? prev : [...prev, message]
       );
     };
+    const onTyping = ({ groupId: g, from } = {}) => {
+      if (g === groupId && from) setTypers((prev) => ({ ...prev, [from]: true }));
+    };
+    const onStopTyping = ({ groupId: g, from } = {}) => {
+      if (g === groupId && from)
+        setTypers((prev) => {
+          const next = { ...prev };
+          delete next[from];
+          return next;
+        });
+    };
     socket.on('newGroupMessage', onGroupMessage);
-    return () => socket.off('newGroupMessage', onGroupMessage);
+    socket.on('typingGroup', onTyping);
+    socket.on('stopTypingGroup', onStopTyping);
+    return () => {
+      socket.off('newGroupMessage', onGroupMessage);
+      socket.off('typingGroup', onTyping);
+      socket.off('stopTypingGroup', onStopTyping);
+    };
   }, [socket, groupId]);
+
+  // A sender's message clears their typing bubble
+  useEffect(() => {
+    const last = messages[messages.length - 1];
+    const senderId = last?.senderId?._id || last?.senderId;
+    if (senderId) {
+      setTypers((prev) => {
+        if (!prev[senderId]) return prev;
+        const next = { ...prev };
+        delete next[senderId];
+        return next;
+      });
+    }
+  }, [messages]);
 
   // Stick to the bottom on new messages
   useEffect(() => {
@@ -77,6 +112,22 @@ const GroupThread = ({ groupId, onBack, onLeft }) => {
     }
   };
 
+  const handleChange = (e) => {
+    const value = e.target.value;
+    setText(value);
+    if (!socket || !value.trim()) return;
+    const now = Date.now();
+    if (now - lastTypingEmitRef.current > 1000) {
+      lastTypingEmitRef.current = now;
+      socket.emit('typingGroup', { groupId });
+    }
+    if (stopTypingTimerRef.current) clearTimeout(stopTypingTimerRef.current);
+    stopTypingTimerRef.current = setTimeout(() => {
+      lastTypingEmitRef.current = 0;
+      socket.emit('stopTypingGroup', { groupId });
+    }, 1500);
+  };
+
   const send = useCallback(async () => {
     const message = text.trim();
     if (!message || sending) return;
@@ -93,13 +144,16 @@ const GroupThread = ({ groupId, onBack, onLeft }) => {
           prev.some((m) => m._id === newMessage._id) ? prev : [...prev, newMessage]
         );
         setText('');
+        if (stopTypingTimerRef.current) clearTimeout(stopTypingTimerRef.current);
+        lastTypingEmitRef.current = 0;
+        socket?.emit('stopTypingGroup', { groupId });
       }
     } catch (error) {
       toast.error(error.response?.data?.message || 'Could not send');
     } finally {
       setSending(false);
     }
-  }, [text, sending, groupId]);
+  }, [text, sending, groupId, socket]);
 
   const leave = async () => {
     if (!window.confirm(`Leave "${group?.name}"?`)) return;
@@ -186,7 +240,7 @@ const GroupThread = ({ groupId, onBack, onLeft }) => {
                 )}
                 <div
                   title={msg.createdAt ? new Date(msg.createdAt).toLocaleString() : undefined}
-                  className={`px-3.5 py-2 rounded-2xl text-sm break-words ${
+                  className={`${msg.post ? 'p-1.5' : 'px-3.5 py-2'} rounded-2xl text-sm break-words ${
                     msg.deleted
                       ? 'bg-transparent border border-zinc-800 text-zinc-500 italic'
                       : mine
@@ -194,7 +248,31 @@ const GroupThread = ({ groupId, onBack, onLeft }) => {
                         : 'bg-zinc-900 text-gray-100'
                   }`}
                 >
-                  {msg.deleted ? 'Message unsent' : msg.message}
+                  {msg.deleted ? (
+                    'Message unsent'
+                  ) : (
+                    <>
+                      {msg.post && (
+                        <Link
+                          to={`/post/${msg.post._id}`}
+                          className='block w-48 bg-black border border-zinc-800 rounded-lg overflow-hidden'
+                        >
+                          <div className='px-2.5 py-1.5 text-xs font-semibold text-gray-100 truncate'>
+                            {msg.post.author?.username}
+                          </div>
+                          <img
+                            src={msg.post.image}
+                            alt={msg.post.caption?.slice(0, 60) || 'Shared post'}
+                            loading='lazy'
+                            className='w-full aspect-square object-cover'
+                          />
+                        </Link>
+                      )}
+                      {msg.message && (
+                        <div className={msg.post ? 'px-2 pt-1.5 pb-0.5' : ''}>{msg.message}</div>
+                      )}
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -202,12 +280,25 @@ const GroupThread = ({ groupId, onBack, onLeft }) => {
         })}
       </div>
 
+      {/* Typing indicator */}
+      {Object.keys(typers).length > 0 && (
+        <p className='px-4 pb-1 text-xs text-zinc-400'>
+          {Object.keys(typers)
+            .map(
+              (id) =>
+                group?.participants?.find((p) => p._id === id)?.username || 'Someone'
+            )
+            .join(', ')}{' '}
+          {Object.keys(typers).length === 1 ? 'is' : 'are'} typing…
+        </p>
+      )}
+
       {/* Composer */}
       <div className='p-3 border-t border-zinc-800'>
         <div className='flex items-center gap-2 border border-zinc-800 rounded-full px-2 py-1'>
           <Input
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={handleChange}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 e.preventDefault();
