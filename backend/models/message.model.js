@@ -20,6 +20,11 @@ const messageSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "Conversation",
     },
+    // Story replies: snapshot of the story image (stories expire after 24h,
+    // so we keep the URL rather than a ref)
+    storyImage: {
+      type: String,
+    },
     message: {
       type: String,
     },

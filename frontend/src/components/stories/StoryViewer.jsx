@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react'
 import axios from 'axios'
 import { toast } from 'sonner'
 import { useSelector } from 'react-redux'
-import { Loader2, Trash2, X } from 'lucide-react'
+import { Loader2, Send, Trash2, X } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar'
 import { cdn } from '@/lib/cdn'
 import { timeAgo } from '@/lib/utils'
@@ -10,6 +10,7 @@ import { timeAgo } from '@/lib/utils'
 const STORY_DURATION_MS = 5000
 const TAP_MAX_MS = 250
 const SWIPE_DOWN_PX = 80
+const QUICK_REACTIONS = ['❤️', '🔥', '😂', '😮']
 
 // Full-screen story viewer overlay. Auto-advances every 5s (CSS animation),
 // pauses on press-and-hold, taps on left/right thirds navigate, swipe-down or
@@ -20,6 +21,9 @@ function StoryViewer({ groups, initialGroupIndex, onClose, onSeen, onDelete }) {
   const [storyIndex, setStoryIndex] = useState(0)
   const [paused, setPaused] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [reply, setReply] = useState('')
+  const [replying, setReplying] = useState(false)
+  const [composing, setComposing] = useState(false) // reply input focused
   const pointerRef = useRef(null)
 
   const group = groups[groupIndex]
@@ -103,6 +107,28 @@ function StoryViewer({ groups, initialGroupIndex, onClose, onSeen, onDelete }) {
       const { left, width } = e.currentTarget.getBoundingClientRect()
       if (e.clientX - left < width / 3) goPrev()
       else goNext()
+    }
+  }
+
+  // Reply / quick-react: lands in the DM thread with the author
+  const sendReply = async (text) => {
+    const message = (text ?? reply).trim()
+    if (!message || replying || !story) return
+    try {
+      setReplying(true)
+      const response = await axios.post(
+        `/api/v1/story/${story._id}/reply`,
+        { message },
+        { withCredentials: true }
+      )
+      if (response.data.success) {
+        toast.success('Sent')
+        setReply('')
+      }
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Could not send reply')
+    } finally {
+      setReplying(false)
     }
   }
 
@@ -198,6 +224,54 @@ function StoryViewer({ groups, initialGroupIndex, onClose, onSeen, onDelete }) {
             className='max-h-full max-w-full object-contain'
           />
         </div>
+
+        {/* Reply bar — hidden on own stories. Pauses playback while typing. */}
+        {!isOwn && (
+          <div className='absolute bottom-0 inset-x-0 z-20 p-3 flex items-center gap-2'>
+            <div className='flex-1 flex items-center gap-2 rounded-full border border-white/40 bg-black/40 backdrop-blur px-3 py-1.5'>
+              <input
+                value={reply}
+                onChange={(e) => setReply(e.target.value)}
+                onFocus={() => {
+                  setComposing(true)
+                  setPaused(true)
+                }}
+                onBlur={() => {
+                  setComposing(false)
+                  setPaused(false)
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') sendReply()
+                  e.stopPropagation()
+                }}
+                placeholder={`Reply to ${group.user.username}…`}
+                className='flex-1 bg-transparent text-sm text-white placeholder:text-white/60 outline-none'
+              />
+              {reply.trim() && (
+                <button
+                  onClick={() => sendReply()}
+                  disabled={replying}
+                  aria-label='Send reply'
+                  className='text-white cursor-pointer disabled:opacity-50'
+                >
+                  <Send size={16} />
+                </button>
+              )}
+            </div>
+            {!composing &&
+              QUICK_REACTIONS.map((emoji) => (
+                <button
+                  key={emoji}
+                  onClick={() => sendReply(emoji)}
+                  disabled={replying}
+                  aria-label={`React ${emoji}`}
+                  className='text-xl leading-none cursor-pointer hover:scale-125 transition-transform disabled:opacity-50'
+                >
+                  {emoji}
+                </button>
+              ))}
+          </div>
+        )}
       </div>
     </div>
   )

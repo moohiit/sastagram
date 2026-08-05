@@ -68,3 +68,33 @@ describe('PATCH /api/v1/story/:id/seen', () => {
     expect(group.stories[0].seen).toBe(true);
   });
 });
+
+describe('POST /api/v1/story/:id/reply', () => {
+  it('creates a DM to the author with a story snapshot; strangers and self are rejected', async () => {
+    await Story.deleteMany({});
+    const story = await makeStory(author.user._id);
+
+    const reply = await request(app)
+      .post(`/api/v1/story/${story._id}/reply`)
+      .set('Cookie', viewer.cookie)
+      .send({ message: '🔥' });
+    expect(reply.status).toBe(201);
+    expect(reply.body.newMessage.message).toBe('🔥');
+    expect(reply.body.newMessage.storyImage).toBe(story.image);
+    expect(reply.body.newMessage.recieverId).toBe(author.user._id.toString());
+
+    // Stranger (doesn't follow the author) is rejected
+    const strangerReply = await request(app)
+      .post(`/api/v1/story/${story._id}/reply`)
+      .set('Cookie', stranger.cookie)
+      .send({ message: 'hi' });
+    expect(strangerReply.status).toBe(403);
+
+    // The author can't reply to their own story
+    const own = await request(app)
+      .post(`/api/v1/story/${story._id}/reply`)
+      .set('Cookie', author.cookie)
+      .send({ message: 'me' });
+    expect(own.status).toBe(400);
+  });
+});
