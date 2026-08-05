@@ -95,6 +95,31 @@ io.on("connection", (socket) => {
   socket.on("typing", ({ to } = {}) => relayTyping("typing", to));
   socket.on("stopTyping", ({ to } = {}) => relayTyping("stopTyping", to));
 
+  // Group typing: relayed to every other member after a membership check
+  // (cached per socket). Payload: { groupId }.
+  const groupMembersCache = new Map(); // groupId -> [memberId]
+  const relayGroupTyping = async (event, groupId) => {
+    if (!groupId || typeof groupId !== "string") return;
+    if (!groupMembersCache.has(groupId)) {
+      const { Conversation } = await import("../models/conversation.model.js");
+      const group = await Conversation.findOne({ _id: groupId, isGroup: true })
+        .select("participants")
+        .catch(() => null);
+      const members = (group?.participants || []).map((p) => p.toString());
+      if (!members.includes(userId)) return;
+      groupMembersCache.set(groupId, members);
+    }
+    const members = groupMembersCache.get(groupId);
+    if (!members.includes(userId)) return;
+    for (const member of members) {
+      if (member !== userId) {
+        emitToUser(member, event, { groupId, from: userId });
+      }
+    }
+  };
+  socket.on("typingGroup", ({ groupId } = {}) => relayGroupTyping("typingGroup", groupId));
+  socket.on("stopTypingGroup", ({ groupId } = {}) => relayGroupTyping("stopTypingGroup", groupId));
+
   socket.on("disconnect", () => {
     localSockets[userId]?.delete(socket.id);
     if (!localSockets[userId]?.size) {
