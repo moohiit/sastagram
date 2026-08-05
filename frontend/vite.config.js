@@ -14,6 +14,19 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // Stable vendor chunks: framework code changes far less often than
+        // app code, so returning visitors keep these cached across deploys.
+        manualChunks: {
+          react: ["react", "react-dom", "react-router-dom"],
+          redux: ["@reduxjs/toolkit", "react-redux", "redux-persist"],
+          realtime: ["socket.io-client", "axios"],
+        },
+      },
+    },
+  },
   server: {
     proxy: {
       "/api": target,

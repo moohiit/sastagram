@@ -58,3 +58,15 @@ const shutdown = (signal) => {
 
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
+
+// Last-resort crash telemetry. An unhandled rejection is logged but does not
+// kill the process (Express catches route errors; anything reaching here is a
+// stray background promise). An uncaught exception means unknown state — log
+// and restart via the platform supervisor.
+process.on('unhandledRejection', (reason) => {
+  console.error('UNHANDLED REJECTION:', reason);
+});
+process.on('uncaughtException', (error) => {
+  console.error('UNCAUGHT EXCEPTION:', error);
+  shutdown('uncaughtException');
+});
