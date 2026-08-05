@@ -1,28 +1,40 @@
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import { lazy, Suspense, useEffect } from 'react';
+import { Loader2 } from 'lucide-react';
 import Home from '@/components/Home';
 import Signup from './components/Signup';
 import Login from './components/Login';
 import MainLayout from './components/MainLayout';
-import Profile from './components/Profile';
-import Explore from './components/Explore';
-import Search from './components/Search';
-import Notifications from './components/Notifications';
-import EditProfile from './components/EditProfile';
-import Chat from './components/Chat';
-import { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { setOnlineUsers, addOnlineUser, removeOnlineUser } from './redux/chatSlice';
-import PostDetail from './components/PostDetail';
-import HashtagPage from './components/HashtagPage';
-import UsernameRedirect from './components/UsernameRedirect';
-import Settings from './components/Settings';
 import { connectSocket, closeSocket } from './lib/socket';
 import { addNotification, setNotifications } from './redux/rtnSlice';
 import axios from 'axios';
 import ProtectedRoutes from './components/ProtectedRoutes';
 import RequireAuth from './components/RequireAuth';
-import Followers from './components/Followers';
-import Following from './components/Following';
+import ErrorBoundary from './components/ErrorBoundary';
+
+// Route-level code splitting: only the shell (layout + home + auth) loads
+// up-front; every other page is fetched on first navigation.
+const Profile = lazy(() => import('./components/Profile'));
+const Explore = lazy(() => import('./components/Explore'));
+const Search = lazy(() => import('./components/Search'));
+const Notifications = lazy(() => import('./components/Notifications'));
+const EditProfile = lazy(() => import('./components/EditProfile'));
+const Chat = lazy(() => import('./components/Chat'));
+const PostDetail = lazy(() => import('./components/PostDetail'));
+const HashtagPage = lazy(() => import('./components/HashtagPage'));
+const UsernameRedirect = lazy(() => import('./components/UsernameRedirect'));
+const Settings = lazy(() => import('./components/Settings'));
+const Followers = lazy(() => import('./components/Followers'));
+const Following = lazy(() => import('./components/Following'));
+
+const PageLoader = () => (
+  <div className='flex justify-center items-center min-h-[60vh]'>
+    <Loader2 className='h-8 w-8 animate-spin text-zinc-500' />
+  </div>
+);
+const lazily = (el) => <Suspense fallback={<PageLoader />}>{el}</Suspense>;
 const browserRouter = createBrowserRouter([
   {
     path: "/",
@@ -34,63 +46,63 @@ const browserRouter = createBrowserRouter([
       },
       {
         path: "/search",
-        element: <Search />
+        element: lazily(<Search />)
       },
       {
         path: "/explore",
-        element: <Explore />
+        element: lazily(<Explore />)
       },
       {
         path: `/profile/:id`,
-        element: <Profile />
+        element: lazily(<Profile />)
       },
       {
         path: "/post/:id",
-        element: <PostDetail />
+        element: lazily(<PostDetail />)
       },
       {
         path: "/tags/:tag",
-        element: <HashtagPage />
+        element: lazily(<HashtagPage />)
       },
       {
         path: "/u/:username",
-        element: <UsernameRedirect />
+        element: lazily(<UsernameRedirect />)
       },
       {
         path: "/messages",
-        element: <RequireAuth><Chat /></RequireAuth>
+        element: <RequireAuth>{lazily(<Chat />)}</RequireAuth>
       },
       {
         path: "/notifications",
-        element: <RequireAuth><Notifications /></RequireAuth>
+        element: <RequireAuth>{lazily(<Notifications />)}</RequireAuth>
       },
       {
         path: "/profile/edit",
-        element: <RequireAuth><EditProfile /></RequireAuth>
+        element: <RequireAuth>{lazily(<EditProfile />)}</RequireAuth>
       },
       {
         path: "/settings",
-        element: <RequireAuth><Settings /></RequireAuth>
+        element: <RequireAuth>{lazily(<Settings />)}</RequireAuth>
       },
       {
         path: "/chat",
-        element: <RequireAuth><Chat /></RequireAuth>
+        element: <RequireAuth>{lazily(<Chat />)}</RequireAuth>
       },
       {
         path: "/chat/group/:groupId",
-        element: <RequireAuth><Chat /></RequireAuth>
+        element: <RequireAuth>{lazily(<Chat />)}</RequireAuth>
       },
       {
         path: "/chat/:id",
-        element: <RequireAuth><Chat /></RequireAuth>
+        element: <RequireAuth>{lazily(<Chat />)}</RequireAuth>
       },
       {
         path: "/:id/followers",
-        element: <Followers />
+        element: lazily(<Followers />)
       },
       {
         path: "/:id/following",
-        element: <Following />
+        element: lazily(<Following />)
       },
     ]
   },
@@ -159,9 +171,9 @@ function App() {
   }, [user?._id, dispatch]);
 
   return (
-    <>
+    <ErrorBoundary>
       <RouterProvider router={browserRouter} />
-    </>
+    </ErrorBoundary>
   )
 }
 
