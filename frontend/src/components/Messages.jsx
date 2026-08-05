@@ -283,6 +283,17 @@ const Messages = ({ selectedUser }) => {
                         <span>Message unsent</span>
                       ) : (
                         <>
+                          {msg.storyImage && (
+                            <div className='pb-1.5'>
+                              <p className='text-[11px] opacity-70 pb-1'>Replied to a story</p>
+                              <img
+                                src={cdn(msg.storyImage, 200)}
+                                alt='Story'
+                                loading='lazy'
+                                className='w-24 rounded-lg object-cover'
+                              />
+                            </div>
+                          )}
                           {msg.post && <SharedPostCard post={msg.post} onOpen={openSharedPost} />}
                           {msg.message && (
                             <div className={msg.post ? 'px-2 pt-1.5 pb-0.5' : ''}>{msg.message}</div>

@@ -2,7 +2,10 @@ import sharp from "sharp";
 import cloudinary from "../utils/cloudinary.js";
 import { Story } from "../models/story.model.js";
 import { Follow } from "../models/follow.model.js";
-import { getFollowingIds } from "./user.controller.js";
+import { Message } from "../models/message.model.js";
+import { Conversation, conversationKey } from "../models/conversation.model.js";
+import { getFollowingIds, isBlockedEitherWay } from "./user.controller.js";
+import { emitToUser } from "../socket.io/socket.io.js";
 
 // Add new Story controller
 export const addNewStory = async (req, res) => {
@@ -208,5 +211,62 @@ export const deleteStory = async (req, res) => {
       message: "Error deleting story",
       success: false,
     });
+  }
+};
+
+// POST /api/v1/story/:id/reply { message } — replies (and quick emoji
+// reactions) to a story land in the DM thread with the author, carrying a
+// snapshot of the story image.
+export const replyToStory = async (req, res) => {
+  try {
+    const storyId = req.params.id;
+    const userId = req.id;
+    const { message } = req.body || {};
+    if (!(typeof message === "string" && message.trim())) {
+      return res.status(400).json({ success: false, message: "Message text is required" });
+    }
+    const story = await Story.findById(storyId);
+    if (!story) {
+      return res.status(404).json({ success: false, message: "Story not found" });
+    }
+    const authorId = story.author.toString();
+    if (authorId === userId) {
+      return res.status(400).json({ success: false, message: "You cannot reply to your own story" });
+    }
+    // Same visibility rule as viewing: must follow the author
+    const follows = await Follow.exists({ follower: userId, following: authorId });
+    if (!follows) {
+      return res.status(403).json({ success: false, message: "Only followers can reply to this story" });
+    }
+    if (await isBlockedEitherWay(userId, authorId)) {
+      return res.status(403).json({ success: false, message: "You cannot message this user" });
+    }
+
+    // Same conversation-upsert flow as a direct message
+    const conversation = await Conversation.findOneAndUpdate(
+      { key: conversationKey(userId, authorId) },
+      {
+        $setOnInsert: {
+          key: conversationKey(userId, authorId),
+          participants: [userId, authorId],
+        },
+      },
+      { upsert: true, new: true }
+    );
+    const newMessage = await Message.create({
+      senderId: userId,
+      recieverId: authorId,
+      message: message.trim().slice(0, 1000),
+      storyImage: story.image,
+    });
+    await Conversation.updateOne(
+      { _id: conversation._id },
+      { $push: { messages: newMessage._id } }
+    );
+    emitToUser(authorId, "newMessage", newMessage);
+    return res.status(201).json({ success: true, newMessage });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: "Internal server error" });
   }
 };
