@@ -17,6 +17,7 @@ const PUBLIC_POST_KEYS = [
   'id',
   'caption',
   'image',
+  'mediaType',
   'altText',
   'likeCount',
   'commentCount',

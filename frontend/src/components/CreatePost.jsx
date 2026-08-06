@@ -15,6 +15,7 @@ import { addPost } from '@/redux/postSlice'
 
 const MAX_CAPTION = 2200
 const MAX_FILE_MB = 10
+const MAX_VIDEO_MB = 50
 const MAX_POLL_QUESTION = 150
 const MAX_POLL_OPTION = 80
 const MIN_POLL_OPTIONS = 2
@@ -40,18 +41,27 @@ function CreatePost({ open, setOpen }) {
 
   const acceptFile = async (picked) => {
     if (!picked) return
-    if (!picked.type.startsWith('image/')) {
-      toast.error('Please choose an image file')
+    const isVideo = picked.type.startsWith('video/')
+    if (!isVideo && !picked.type.startsWith('image/')) {
+      toast.error('Please choose an image or video file')
       return
     }
-    if (picked.size > MAX_FILE_MB * 1024 * 1024) {
-      toast.error(`Image must be smaller than ${MAX_FILE_MB}MB`)
+    const maxMb = isVideo ? MAX_VIDEO_MB : MAX_FILE_MB
+    if (picked.size > maxMb * 1024 * 1024) {
+      toast.error(`${isVideo ? 'Videos' : 'Images'} must be smaller than ${maxMb}MB`)
       return
     }
     setFile(picked)
-    const dataUrl = await readFileAsDataURL(picked)
-    setImagePreview(dataUrl)
+    setSuggestions([])
+    if (isVideo) {
+      // Object URL — base64-encoding a large video would freeze the tab
+      setImagePreview(URL.createObjectURL(picked))
+    } else {
+      setImagePreview(await readFileAsDataURL(picked))
+    }
   }
+
+  const isVideoFile = Boolean(file?.type?.startsWith('video/'))
 
   const fileHandler = (e) => {
     acceptFile(e.target.files?.[0])
@@ -125,7 +135,7 @@ function CreatePost({ open, setOpen }) {
 
   const createPostHandler = async () => {
     if (!file) {
-      toast.error('Please select a photo first')
+      toast.error('Please select a photo or video first')
       return
     }
     // Client-side poll validation, mirroring the server rules
@@ -191,11 +201,20 @@ function CreatePost({ open, setOpen }) {
 
         {imagePreview ? (
           <div className='relative w-full'>
-            <img
-              src={imagePreview}
-              alt='Preview'
-              className='w-full max-h-[320px] object-cover rounded-lg border border-zinc-800'
-            />
+            {isVideoFile ? (
+              <video
+                src={imagePreview}
+                controls
+                playsInline
+                className='w-full max-h-[320px] object-contain rounded-lg border border-zinc-800 bg-black'
+              />
+            ) : (
+              <img
+                src={imagePreview}
+                alt='Preview'
+                className='w-full max-h-[320px] object-cover rounded-lg border border-zinc-800'
+              />
+            )}
             <button
               onClick={removeImage}
               disabled={loading}
@@ -219,7 +238,7 @@ function CreatePost({ open, setOpen }) {
             }`}
           >
             <ImagePlus size={40} className='text-zinc-500' />
-            <p className='text-sm text-gray-100'>Drag a photo here</p>
+            <p className='text-sm text-gray-100'>Drag a photo or video here</p>
             <p className='text-xs text-zinc-500'>or click to select from your device</p>
           </div>
         )}
@@ -228,11 +247,11 @@ function CreatePost({ open, setOpen }) {
           ref={inputRef}
           onChange={fileHandler}
           type='file'
-          accept='image/*'
+          accept='image/*,video/mp4,video/quicktime,video/webm'
           className='hidden'
         />
 
-        {aiEnabled && imagePreview && (
+        {aiEnabled && imagePreview && !isVideoFile && (
           <div className='flex flex-col gap-2'>
             <button
               onClick={suggestCaptions}

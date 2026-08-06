@@ -12,7 +12,7 @@ export const addNewStory = async (req, res) => {
   try {
     const image = req.file;
     const authorId = req.id;
-    if (!image) {
+    if (!image || !image.mimetype?.startsWith("image/")) {
       return res.status(400).json({
         message: "Image required",
         success: false,

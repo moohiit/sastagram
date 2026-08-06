@@ -98,3 +98,16 @@ describe('POST /api/v1/story/:id/reply', () => {
     expect(own.status).toBe(400);
   });
 });
+
+describe('story upload guard', () => {
+  it('rejects video files (stories are image-only)', async () => {
+    const res = await request(app)
+      .post('/api/v1/story/')
+      .set('Cookie', author.cookie)
+      .attach('image', Buffer.from('not-a-real-video'), {
+        filename: 'clip.mp4',
+        contentType: 'video/mp4',
+      });
+    expect(res.status).toBe(400);
+  });
+});

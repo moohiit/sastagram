@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import axios from 'axios'
-import { Heart, MessageCircle } from 'lucide-react'
+import { Heart, MessageCircle, Play } from 'lucide-react'
 import { cdn } from '@/lib/cdn'
 import CommentDialog from './CommentDialog'
 
@@ -77,6 +77,9 @@ function Explore() {
                 loading='lazy'
                 className='w-full h-full object-cover'
               />
+              {post.mediaType === 'video' && (
+                <Play size={18} fill='white' className='absolute top-2 right-2 text-white drop-shadow' />
+              )}
               {/* Hover overlay with like/comment counts (desktop) */}
               <div className='absolute inset-0 hidden md:flex items-center justify-center gap-6 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity'>
                 <span className='flex items-center gap-1.5 text-white text-sm font-semibold'>

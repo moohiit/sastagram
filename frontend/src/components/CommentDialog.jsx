@@ -143,14 +143,25 @@ function CommentDialog({ open, setOpen, post }) {
         <DialogTitle className='hidden'>Comments</DialogTitle>
         <DialogDescription className='hidden'>Comments on this post.</DialogDescription>
         <div className='flex flex-col md:flex-row max-h-[85vh]'>
-          {/* Image */}
+          {/* Media */}
           <div className='bg-black md:w-1/2 shrink-0 flex items-center justify-center'>
-            <img
-              src={cdn(post.image, 800)}
-              alt='Post'
-              loading='lazy'
-              className='w-full object-cover max-h-[35vh] md:max-h-none md:aspect-square'
-            />
+            {post.mediaType === 'video' ? (
+              <video
+                src={post.video}
+                poster={cdn(post.image, 800)}
+                controls
+                playsInline
+                preload='metadata'
+                className='w-full object-contain max-h-[35vh] md:max-h-none md:aspect-square bg-black'
+              />
+            ) : (
+              <img
+                src={cdn(post.image, 800)}
+                alt='Post'
+                loading='lazy'
+                className='w-full object-cover max-h-[35vh] md:max-h-none md:aspect-square'
+              />
+            )}
           </div>
 
           {/* Thread */}

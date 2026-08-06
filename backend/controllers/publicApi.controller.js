@@ -34,6 +34,8 @@ export const toPublicPost = (post, likeCounts) => ({
   id: post._id.toString(),
   caption: post.caption ?? "",
   image: post.image,
+  mediaType: post.mediaType ?? "image",
+  ...(post.video ? { video: post.video } : {}),
   altText: post.altText ?? "",
   likeCount: likeCounts?.get(post._id.toString()) ?? 0,
   commentCount: Array.isArray(post.comments) ? post.comments.length : 0,
@@ -68,7 +70,7 @@ export const listPublicPosts = async (req, res) => {
     const posts = await Post.find(query)
       .sort({ _id: -1 })
       .limit(limit + 1)
-      .select("caption image altText comments createdAt author")
+      .select("caption image mediaType video altText comments createdAt author")
       .populate({ path: "author", select: "username profilePicture" });
 
     const hasMore = posts.length > limit;
@@ -98,7 +100,7 @@ export const getPublicPost = async (req, res) => {
         .json({ success: false, message: "Post not found" });
     }
     const post = await Post.findById(id)
-      .select("caption image altText comments createdAt author")
+      .select("caption image mediaType video altText comments createdAt author")
       .populate({ path: "author", select: "username profilePicture isPrivate" });
     if (!post || post.author?.isPrivate) {
       return res
@@ -218,7 +220,7 @@ export const searchPublicPosts = async (req, res) => {
     const posts = await Post.find(textQuery)
       .sort({ _id: -1 })
       .limit(MAX_LIMIT)
-      .select("caption image altText comments createdAt author")
+      .select("caption image mediaType video altText comments createdAt author")
       .populate({ path: "author", select: "username profilePicture" });
     const likeCounts = await likeCountsFor(posts);
     return res.status(200).json({

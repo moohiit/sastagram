@@ -11,7 +11,7 @@ export const suggestCaptions = async (req, res) => {
     if (!isAiEnabled()) {
       return res.status(503).json({ success: false, message: "AI features are not configured" });
     }
-    if (!req.file) {
+    if (!req.file || !req.file.mimetype?.startsWith("image/")) {
       return res.status(400).json({ success: false, message: "Image required" });
     }
     const raw = await generateFromImage({

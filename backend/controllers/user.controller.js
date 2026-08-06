@@ -320,6 +320,9 @@ export const editProfile = async (req, res) => {
       });
     }
     const profilePicture = req.file;
+    if (profilePicture && !profilePicture.mimetype?.startsWith("image/")) {
+      return res.status(400).json({ message: "Profile picture must be an image", success: false });
+    }
     let cloudResponse;
     if (profilePicture) {
       // Optimize avatars the same way post images are optimized

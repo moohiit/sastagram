@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import axios from 'axios'
 import { Link, useParams } from 'react-router-dom'
-import { Heart, Loader2, MessageCircle } from 'lucide-react'
+import { Heart, Loader2, MessageCircle, Play } from 'lucide-react'
 import { cdn } from '@/lib/cdn'
 
 // /tags/:tag — grid of posts carrying a hashtag, with load-more pagination.
@@ -75,6 +75,9 @@ function HashtagPage() {
                 loading='lazy'
                 className='w-full h-full object-cover'
               />
+              {post.mediaType === 'video' && (
+                <Play size={18} fill='white' className='absolute top-2 right-2 text-white drop-shadow' />
+              )}
               <div className='absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4 text-white text-sm font-semibold'>
                 <span className='flex items-center gap-1'>
                   <Heart size={16} fill='white' /> {post.likesCount ?? 0}
