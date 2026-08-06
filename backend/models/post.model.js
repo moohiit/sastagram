@@ -20,7 +20,11 @@ const pollSchema = new mongoose.Schema(
 const postSchema = new mongoose.Schema(
   {
     caption: { type: String, default: "" },
+    // For videos, `image` holds the Cloudinary-generated poster frame
     image: { type: String, required: true },
+    mediaType: { type: String, enum: ["image", "video"], default: "image" },
+    // Cloudinary video URL (mediaType === "video" only)
+    video: { type: String },
     // AI-generated accessibility description (empty when AI is disabled)
     altText: { type: String, default: "" },
     // 768-dim semantic embedding for vector search — never sent in API

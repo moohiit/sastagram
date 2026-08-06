@@ -23,6 +23,10 @@ Sequential build order. Status: ✅ done · 🔨 in progress · ⬜ pending
 | 17 | Ranked Explore feed | ✅ | Gravity score over Like/Comment collections |
 | 18 | Group chats | ✅ | Create/add/leave, admin transfer, realtime |
 | 19 | AI smart replies + similar posts | ✅ | ✨ in DM composer; "More like this" on /post/:id |
+| 20 | Story replies & reactions | ✅ | Reply bar + quick emojis → DM with story snapshot |
+| 21 | Group chat polish | ✅ | Unread badges, typing, share-to-group |
+| 22 | Perf & ops hardening | ✅ | Route code-splitting, vendor chunks, error boundary, crash guards |
+| 23 | Video posts | ✅ | Cloudinary video upload, feed player, grid badges |
 
 AI features degrade gracefully when GEMINI_API_KEY is not configured
 (buttons hidden / checks skipped).

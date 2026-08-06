@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import sharp from "sharp";
 import cloudinary from "../utils/cloudinary.js";
+import { isImageFile, isVideoFile } from "../middlewares/multer.js";
 import { Post } from "../models/post.model.js";
 import { User } from "../models/user.model.js";
 import { Comment } from "../models/comment.model.js";
@@ -16,6 +17,18 @@ import { io } from "../socket.io/socket.io.js";
 
 const POLL_QUESTION_MAX = 150;
 const POLL_OPTION_MAX = 80;
+const IMAGE_MAX_BYTES = 10 * 1024 * 1024;
+
+// Stream a video buffer to Cloudinary (base64 data-URIs balloon 33% and hit
+// request limits; a stream does not).
+const uploadVideoBuffer = (buffer) =>
+  new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      { resource_type: "video" },
+      (error, result) => (error ? reject(error) : resolve(result))
+    );
+    stream.end(buffer);
+  });
 
 // Private-account gating for feeds: returns the author ids whose posts this
 // viewer must NOT see (private accounts they don't follow), or null when
@@ -101,11 +114,11 @@ const parsePollInput = (pollQuestion, pollOptions) => {
 export const addNewPost = async (req, res) => {
   try {
     const { caption, pollQuestion, pollOptions } = req.body;
-    const image = req.file;
+    const media = req.file;
     const authorId = req.id;
-    if (!image) {
+    if (!media) {
       return res.status(400).json({
-        message: "Image required",
+        message: "Image or video required",
         success: false,
       });
     }
@@ -114,31 +127,46 @@ export const addNewPost = async (req, res) => {
     if (pollError) {
       return res.status(400).json({ message: pollError, success: false });
     }
-    const optimizedImageBuffer = await sharp(image.buffer)
-      .resize({
-        width: 800,
-        height: 800,
-        fit: "inside",
-      })
-      .toFormat("jpeg", { quality: 80 })
-      .toBuffer();
-    // Image to data uri
-    const imageUri = `data:${
-      image.mimetype
-    };base64,${optimizedImageBuffer.toString("base64")}`;
-    //upload image to cloudinary
-    const cloudResponse = await cloudinary.uploader.upload(imageUri);
-    if (!cloudResponse) {
-      return res.status(500).json({
-        message: "Error uploading image to cloudinary",
-        success: false,
-      });
+
+    let imageUrl;
+    let videoUrl;
+    let optimizedImageBuffer;
+    if (isVideoFile(media)) {
+      const cloudResponse = await uploadVideoBuffer(media.buffer);
+      videoUrl = cloudResponse.secure_url;
+      // Cloudinary renders a poster frame when the extension is swapped
+      imageUrl = cloudResponse.secure_url.replace(/\.[^/.]+$/, ".jpg");
+    } else {
+      if (!isImageFile(media)) {
+        return res.status(400).json({ message: "Unsupported file type", success: false });
+      }
+      if (media.size > IMAGE_MAX_BYTES) {
+        return res.status(400).json({ message: "Images must be smaller than 10MB", success: false });
+      }
+      optimizedImageBuffer = await sharp(media.buffer)
+        .resize({
+          width: 800,
+          height: 800,
+          fit: "inside",
+        })
+        .toFormat("jpeg", { quality: 80 })
+        .toBuffer();
+      const imageUri = `data:${media.mimetype};base64,${optimizedImageBuffer.toString("base64")}`;
+      const cloudResponse = await cloudinary.uploader.upload(imageUri);
+      if (!cloudResponse) {
+        return res.status(500).json({
+          message: "Error uploading image to cloudinary",
+          success: false,
+        });
+      }
+      imageUrl = cloudResponse.secure_url;
     }
-    const imageUrl = cloudResponse.secure_url;
+
     //creating the post
     const post = await Post.create({
       caption,
       image: imageUrl,
+      ...(videoUrl ? { mediaType: "video", video: videoUrl } : {}),
       author: authorId,
       hashtags: extractHashtags(caption),
       poll,
@@ -155,9 +183,11 @@ export const addNewPost = async (req, res) => {
     // Fire-and-forget @mention notifications from the caption
     notifyMentions({ text: caption, sender: authorId, post: post._id });
 
-    // Fire-and-forget AI enrichment (alt-text + embedding) — deliberately not
-    // awaited so upload response time is unchanged; no-op when AI is disabled.
-    enrichPostAI(post._id, optimizedImageBuffer, "image/jpeg", caption);
+    // Fire-and-forget AI enrichment (alt-text + embedding) — image posts only;
+    // deliberately not awaited so upload response time is unchanged.
+    if (optimizedImageBuffer) {
+      enrichPostAI(post._id, optimizedImageBuffer, "image/jpeg", caption);
+    }
 
     //populate the post with user data
     await post.populate({
@@ -748,10 +778,16 @@ export const deletePost = async (req, res) => {
     //delete the post
     await Post.findByIdAndDelete(postId);
 
-    // Delete the image from Cloudinary (public_id = last URL segment sans extension)
+    // Delete the media from Cloudinary (public_id = last URL segment sans
+    // extension; videos live under the video resource type)
     try {
-      const publicId = post.image.split("/").pop().split(".")[0];
-      if (publicId) await cloudinary.uploader.destroy(publicId);
+      const source = post.mediaType === "video" ? post.video : post.image;
+      const publicId = source?.split("/").pop().split(".")[0];
+      if (publicId) {
+        await cloudinary.uploader.destroy(publicId, {
+          resource_type: post.mediaType === "video" ? "video" : "image",
+        });
+      }
     } catch (e) {
       console.error("Cloudinary cleanup failed:", e.message);
     }

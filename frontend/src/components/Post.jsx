@@ -223,24 +223,36 @@ function Post({ post }) {
         onToggleFollow={toggleFollowHandler}
       />
 
-      <div
-        className='relative w-full select-none cursor-pointer'
-        style={{ touchAction: 'manipulation' }}
-        onClick={imageTapHandler}
-      >
-        <img
-          className='w-full aspect-square object-cover'
-          src={cdn(post?.image, 800)}
-          alt={post?.altText || (post?.caption ? post.caption.slice(0, 80) : 'Post')}
-          loading='lazy'
-          draggable={false}
+      {post.mediaType === 'video' ? (
+        <video
+          src={post.video}
+          poster={cdn(post?.image, 800)}
+          controls
+          playsInline
+          loop
+          preload='metadata'
+          className='w-full aspect-square object-contain bg-black'
         />
-        {showBurst && (
-          <div key={burstKey} className='absolute inset-0 flex items-center justify-center pointer-events-none'>
-            <Heart size={96} fill='white' className='text-white heart-burst drop-shadow-lg' />
-          </div>
-        )}
-      </div>
+      ) : (
+        <div
+          className='relative w-full select-none cursor-pointer'
+          style={{ touchAction: 'manipulation' }}
+          onClick={imageTapHandler}
+        >
+          <img
+            className='w-full aspect-square object-cover'
+            src={cdn(post?.image, 800)}
+            alt={post?.altText || (post?.caption ? post.caption.slice(0, 80) : 'Post')}
+            loading='lazy'
+            draggable={false}
+          />
+          {showBurst && (
+            <div key={burstKey} className='absolute inset-0 flex items-center justify-center pointer-events-none'>
+              <Heart size={96} fill='white' className='text-white heart-burst drop-shadow-lg' />
+            </div>
+          )}
+        </div>
+      )}
 
       <PostActions
         liked={liked}
