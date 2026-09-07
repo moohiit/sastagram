@@ -1,24 +1,33 @@
-# Keeps the Render free-tier instance awake: free services spin down after
-# ~15 minutes without inbound traffic, so this pings /healthz every 10.
+# Keeps the Render free-tier sites awake: free services spin down after
+# ~15 minutes without inbound traffic, so this pings their /healthz
+# endpoints every 10 minutes.
 #
-# Notes:
-# - GitHub cron is best-effort; ticks can be delayed a few minutes under
-#   load, so a rare cold start is still possible.
-# - GitHub disables scheduled workflows after 60 days without repo activity —
-#   pushing commits (or re-enabling in the Actions tab) keeps it running.
-name: Keep Render awake
+# Window: 03:00-14:50 UTC = ~08:30-20:30 IST. Render's free plan shares
+# 750 instance-hours/month across the workspace; two services awake
+# ~12h/day (~710h total) fits, where two 24/7 services (~1440h) would
+# not. Outside the window both sites sleep and cold-start on first visit.
+#
+# This lives in the sastagram repo (the active one) because GitHub
+# disables scheduled workflows after 60 days without repo activity.
+name: Keep Render sites awake
 
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    - cron: "*/10 3-14 * * *"
   workflow_dispatch:
 
 jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping health endpoint
+      - name: Ping sastagram
         run: |
-          curl -fsS --max-time 60 --retry 3 --retry-delay 10 \
+          curl -fsS --max-time 90 --retry 3 --retry-delay 10 \
             https://sastagram.mohitpatel.org/healthz
-          echo "Service is awake."
+          echo "sastagram is awake."
+      - name: Ping shopease
+        if: always() # one site being down must not stop the other's ping
+        run: |
+          curl -fsS --max-time 90 --retry 3 --retry-delay 10 \
+            https://shopease.mohitpatel.org/healthz
+          echo "shopease is awake."
