@@ -1,0 +1,24 @@
+# Keeps the Render free-tier instance awake: free services spin down after
+# ~15 minutes without inbound traffic, so this pings /healthz every 10.
+#
+# Notes:
+# - GitHub cron is best-effort; ticks can be delayed a few minutes under
+#   load, so a rare cold start is still possible.
+# - GitHub disables scheduled workflows after 60 days without repo activity —
+#   pushing commits (or re-enabling in the Actions tab) keeps it running.
+name: Keep Render awake
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping health endpoint
+        run: |
+          curl -fsS --max-time 60 --retry 3 --retry-delay 10 \
+            https://sastagram.mohitpatel.org/healthz
+          echo "Service is awake."
