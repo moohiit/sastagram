@@ -10,7 +10,7 @@ function TopBar() {
 
   return (
     <header className='md:hidden sticky top-0 z-30 flex h-14 items-center justify-between border-b border-zinc-800 bg-black px-4'>
-      <Link to='/' className='font-bold text-xl tracking-tight text-gray-100'>
+      <Link to='/' className='font-bold text-xl tracking-tight ig-gradient-text'>
         SastaGram
       </Link>
       {user ? (

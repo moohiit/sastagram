@@ -79,8 +79,10 @@ function LeftSidebar({ openCreate }) {
         className='flex items-center gap-2 px-3 py-3 mb-4 text-gray-100'
         title='SastaGram'
       >
-        <Instagram size={26} className='shrink-0' />
-        <span className='hidden min-[1264px]:inline font-bold text-xl tracking-tight'>
+        <span className='ig-gradient rounded-lg p-1 shrink-0 text-white'>
+          <Instagram size={20} />
+        </span>
+        <span className='hidden min-[1264px]:inline font-bold text-xl tracking-tight ig-gradient-text'>
           SastaGram
         </span>
       </Link>

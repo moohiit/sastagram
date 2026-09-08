@@ -71,7 +71,7 @@ const Signup = () => {
     <div className='flex min-h-screen w-full items-center justify-center bg-black px-4'>
       <div className='flex w-full max-w-sm flex-col gap-3'>
         <div className='rounded-lg border border-zinc-800 bg-black p-8'>
-          <h1 className='mb-2 text-center text-3xl font-bold tracking-tight text-gray-100'>
+          <h1 className='mb-2 text-center text-3xl font-bold tracking-tight ig-gradient-text'>
             SastaGram
           </h1>
           <p className='mb-6 text-center text-sm text-zinc-400'>
@@ -134,7 +134,7 @@ const Signup = () => {
             <Button
               type='submit'
               disabled={loading}
-              className='mt-2 bg-blue-500 font-semibold text-white hover:bg-blue-600'
+              className='mt-2 ig-gradient font-semibold text-white hover:opacity-90 transition-opacity'
             >
               {loading ? (
                 <>

@@ -185,7 +185,7 @@ function CreatePost({ open, setOpen }) {
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && resetAndClose()}>
-      <DialogContent className='max-w-lg rounded-xl'>
+      <DialogContent className='max-w-lg rounded-xl max-h-[90vh] overflow-y-auto'>
         <DialogTitle className='text-base font-semibold text-gray-100 text-center'>
           Create new post
         </DialogTitle>
@@ -354,7 +354,7 @@ function CreatePost({ open, setOpen }) {
         <Button
           onClick={createPostHandler}
           disabled={loading || !file}
-          className='w-full bg-blue-500 hover:bg-blue-600'
+          className='w-full ig-gradient text-white hover:opacity-90 transition-opacity'
         >
           {loading ? (
             <>
