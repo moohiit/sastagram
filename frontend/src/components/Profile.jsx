@@ -55,7 +55,7 @@ const Profile = () => {
 
   const tabClass = isActive =>
     `-mt-px flex cursor-pointer items-center gap-1.5 border-t py-3 text-xs font-semibold uppercase tracking-widest transition-colors ${
-      isActive ? 'border-gray-100 text-gray-100' : 'border-transparent text-zinc-500 hover:text-zinc-400'
+      isActive ? 'border-zinc-900 dark:border-gray-100 text-zinc-900 dark:text-gray-100' : 'border-transparent text-zinc-500 hover:text-zinc-600 dark:hover:text-zinc-400'
     }`;
 
   return (
@@ -71,7 +71,7 @@ const Profile = () => {
 
         <section className='flex min-w-0 flex-1 flex-col gap-4'>
           <div className='flex flex-wrap items-center gap-x-4 gap-y-2'>
-            <h1 className='truncate text-xl text-gray-100'>{userProfile.username}</h1>
+            <h1 className='truncate text-xl text-zinc-900 dark:text-gray-100'>{userProfile.username}</h1>
             {isOwnProfile ? (
               <div className='flex items-center gap-2'>
                 <Link to='/profile/edit'>
@@ -117,10 +117,10 @@ const Profile = () => {
           </div>
 
           {/* Stats — inline on desktop */}
-          <div className='hidden items-center gap-10 text-sm text-gray-100 sm:flex'>
+          <div className='hidden items-center gap-10 text-sm text-zinc-900 dark:text-gray-100 sm:flex'>
             {stats.map(s =>
               s.to ? (
-                <Link key={s.label} to={s.to} className='cursor-pointer hover:text-zinc-400'>
+                <Link key={s.label} to={s.to} className='cursor-pointer hover:text-zinc-600 dark:hover:text-zinc-400'>
                   <span className='font-semibold'>{s.count}</span> {s.label}
                 </Link>
               ) : (
@@ -133,7 +133,7 @@ const Profile = () => {
 
           {/* Bio — desktop */}
           {userProfile.bio ? (
-            <p className='hidden whitespace-pre-line text-sm text-gray-100 sm:block'>
+            <p className='hidden whitespace-pre-line text-sm text-zinc-900 dark:text-gray-100 sm:block'>
               {userProfile.bio}
             </p>
           ) : null}
@@ -142,18 +142,18 @@ const Profile = () => {
 
       {/* Bio — mobile */}
       {userProfile.bio ? (
-        <p className='whitespace-pre-line pb-4 text-sm text-gray-100 sm:hidden'>
+        <p className='whitespace-pre-line pb-4 text-sm text-zinc-900 dark:text-gray-100 sm:hidden'>
           {userProfile.bio}
         </p>
       ) : null}
 
       {/* Stats — bordered row on mobile */}
-      <div className='grid grid-cols-3 border-y border-zinc-800 py-3 text-center sm:hidden'>
+      <div className='grid grid-cols-3 border-y border-zinc-200 dark:border-zinc-800 py-3 text-center sm:hidden'>
         {stats.map(s => {
           const inner = (
             <>
-              <span className='text-sm font-semibold text-gray-100'>{s.count}</span>
-              <span className='text-sm text-zinc-400'>{s.label}</span>
+              <span className='text-sm font-semibold text-zinc-900 dark:text-gray-100'>{s.count}</span>
+              <span className='text-sm text-zinc-500 dark:text-zinc-400'>{s.label}</span>
             </>
           );
           return s.to ? (
@@ -169,7 +169,7 @@ const Profile = () => {
       </div>
 
       {/* Tabs */}
-      <div className='flex items-center justify-center gap-12 border-t border-zinc-800 max-sm:border-t-0'>
+      <div className='flex items-center justify-center gap-12 border-t border-zinc-200 dark:border-zinc-800 max-sm:border-t-0'>
         <button onClick={() => setActiveTab('posts')} className={tabClass(activeTab === 'posts')}>
           <Grid3x3 size={14} /> Posts
         </button>
@@ -183,11 +183,11 @@ const Profile = () => {
       <div className='pb-8'>
         {userProfile.restricted ? (
           <div className='flex flex-col items-center gap-2 py-14 text-center'>
-            <div className='rounded-full border border-zinc-700 p-4'>
-              <Lock size={28} className='text-gray-100' />
+            <div className='rounded-full border border-zinc-300 dark:border-zinc-700 p-4'>
+              <Lock size={28} className='text-zinc-900 dark:text-gray-100' />
             </div>
-            <p className='text-sm font-semibold text-gray-100'>This account is private</p>
-            <p className='text-sm text-zinc-400'>Follow to see their photos.</p>
+            <p className='text-sm font-semibold text-zinc-900 dark:text-gray-100'>This account is private</p>
+            <p className='text-sm text-zinc-500 dark:text-zinc-400'>Follow to see their photos.</p>
           </div>
         ) : (
           <PostsGrid

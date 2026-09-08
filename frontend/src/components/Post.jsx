@@ -211,7 +211,7 @@ function Post({ post }) {
   }
 
   return (
-    <article className='bg-black border-b border-zinc-800 pb-4 mb-4 w-full'>
+    <article className='bg-white dark:bg-black border-b border-zinc-200 dark:border-zinc-800 pb-4 mb-4 w-full'>
       <PostHeader
         post={post}
         isOwn={isOwn}
@@ -231,7 +231,7 @@ function Post({ post }) {
           playsInline
           loop
           preload='metadata'
-          className='w-full aspect-square object-contain bg-black'
+          className='w-full aspect-square object-contain bg-white dark:bg-black'
         />
       ) : (
         <div
@@ -266,7 +266,7 @@ function Post({ post }) {
 
       {likeCount > 0 && (
         <div className='px-3 pt-2'>
-          <span className='text-sm font-semibold text-gray-100'>
+          <span className='text-sm font-semibold text-zinc-900 dark:text-gray-100'>
             {likeCount.toLocaleString()} {likeCount === 1 ? 'like' : 'likes'}
           </span>
         </div>
@@ -279,7 +279,7 @@ function Post({ post }) {
       {(post.commentsCount ?? comments.length) > 0 && (
         <button
           onClick={() => setCommentsOpen(true)}
-          className='block px-3 pt-1 text-sm text-zinc-400 cursor-pointer hover:text-gray-100'
+          className='block px-3 pt-1 text-sm text-zinc-500 dark:text-zinc-400 cursor-pointer hover:text-zinc-900 dark:hover:text-gray-100'
         >
           {(post.commentsCount ?? comments.length) === 1
             ? 'View 1 comment'
@@ -303,7 +303,7 @@ function Post({ post }) {
             if (e.key === 'Enter') addCommentHandler()
           }}
           placeholder={user ? 'Add a comment...' : 'Log in to comment'}
-          className='flex-1 outline-none text-sm text-gray-100 placeholder:text-zinc-500 bg-transparent'
+          className='flex-1 outline-none text-sm text-zinc-900 dark:text-gray-100 placeholder:text-zinc-500 bg-transparent'
         />
         {comment.trim() && (
           <button

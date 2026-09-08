@@ -5,19 +5,19 @@ import { cva } from "class-variance-authority";
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-black transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 dark:ring-offset-slate-950 dark:focus-visible:ring-slate-300",
+  "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium ring-offset-white dark:ring-offset-black transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-300 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
-        default: "bg-slate-900 text-slate-50 hover:bg-slate-900/90 dark:bg-slate-50 dark:text-gray-100 dark:hover:bg-slate-50/90",
+        default: "bg-slate-900 text-zinc-900 dark:text-gray-100 hover:bg-slate-900/90",
         destructive:
-          "bg-red-500 text-slate-50 hover:bg-red-500/90 dark:bg-red-900 dark:text-slate-50 dark:hover:bg-red-900/90",
+          "bg-red-500 text-zinc-900 dark:text-gray-100 hover:bg-red-500/90",
         outline:
-          "border border-zinc-800 bg-black hover:bg-zinc-800 hover:text-gray-100 dark:border-slate-800 dark:bg-slate-950 dark:hover:bg-slate-800 dark:hover:text-slate-50",
+          "border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-black hover:bg-zinc-300 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-gray-100",
         secondary:
-          "bg-zinc-800 text-gray-100 hover:bg-zinc-800/80 dark:bg-slate-800 dark:text-slate-50 dark:hover:bg-slate-800/80",
-        ghost: "hover:bg-zinc-800 hover:text-gray-100 dark:hover:bg-slate-800 dark:hover:text-slate-50",
-        link: "text-gray-100 underline-offset-4 hover:underline dark:text-slate-50",
+          "bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-gray-100 hover:bg-zinc-300/80 dark:hover:bg-zinc-800/80",
+        ghost: "hover:bg-zinc-300 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-gray-100",
+        link: "text-zinc-900 dark:text-gray-100 underline-offset-4 hover:underline",
       },
       size: {
         default: "h-10 px-4 py-2",

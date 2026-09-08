@@ -77,7 +77,7 @@ function PushToggle() {
       onClick={toggle}
       disabled={busy}
       title={subscribed ? 'Disable push notifications' : 'Enable push notifications'}
-      className='flex items-center gap-1.5 text-sm text-blue-400 hover:text-blue-300 cursor-pointer rounded-lg px-2 py-1 hover:bg-zinc-900 transition-colors'
+      className='flex items-center gap-1.5 text-sm text-blue-400 hover:text-blue-300 cursor-pointer rounded-lg px-2 py-1 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors'
     >
       {busy ? (
         <Loader2 size={20} className='animate-spin' />
@@ -125,16 +125,16 @@ function FollowRequests() {
   if (requests.length === 0) return null;
   return (
     <div className='mb-4'>
-      <h2 className='text-sm font-semibold text-gray-100 mb-2'>Follow requests</h2>
-      <div className='flex flex-col divide-y divide-zinc-800 rounded-lg border border-zinc-800 bg-black'>
+      <h2 className='text-sm font-semibold text-zinc-900 dark:text-gray-100 mb-2'>Follow requests</h2>
+      <div className='flex flex-col divide-y divide-zinc-200 dark:divide-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-black'>
         {requests.map((r) => (
           <div key={r._id} className='flex items-center gap-3 p-3'>
             <img
               src={r.from?.profilePicture || undefined}
               alt={r.from?.username}
-              className='h-9 w-9 rounded-full object-cover bg-zinc-800'
+              className='h-9 w-9 rounded-full object-cover bg-zinc-200 dark:bg-zinc-800'
             />
-            <span className='text-sm text-gray-100 flex-1 truncate font-semibold'>
+            <span className='text-sm text-zinc-900 dark:text-gray-100 flex-1 truncate font-semibold'>
               {r.from?.username}
             </span>
             <button
@@ -147,7 +147,7 @@ function FollowRequests() {
             <button
               disabled={busy === r._id}
               onClick={() => respond(r._id, 'decline')}
-              className='rounded-md bg-zinc-800 hover:bg-zinc-700 px-3 py-1.5 text-xs font-semibold text-gray-100 cursor-pointer disabled:opacity-50'
+              className='rounded-md bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-700 px-3 py-1.5 text-xs font-semibold text-zinc-900 dark:text-gray-100 cursor-pointer disabled:opacity-50'
             >
               Delete
             </button>
@@ -181,9 +181,9 @@ export default function Notifications() {
       </div>
       {user && <FollowRequests />}
       {notifications.length === 0 ? (
-        <p className='text-sm text-zinc-400'>No new notification</p>
+        <p className='text-sm text-zinc-500 dark:text-zinc-400'>No new notification</p>
       ) : (
-        <div className='flex flex-col divide-y divide-zinc-800 rounded-lg border border-zinc-800 bg-black'>
+        <div className='flex flex-col divide-y divide-zinc-200 dark:divide-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-black'>
           {notifications.map((notification) => (
             <div key={notification._id} className='p-3'>
               <NotificationItem notification={notification} />

@@ -16,7 +16,7 @@ function MainLayout() {
   const [createOpen, setCreateOpen] = useState(false);
 
   return (
-    <div className='min-h-screen bg-black text-gray-100'>
+    <div className='min-h-screen bg-white dark:bg-black text-zinc-900 dark:text-gray-100'>
       <TopBar />
       <LeftSidebar openCreate={() => setCreateOpen(true)} />
 

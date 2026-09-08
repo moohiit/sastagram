@@ -22,7 +22,7 @@ function PostCaption({ post }) {
   if (!post?.caption) return null
 
   return (
-    <div className='px-3 pt-1 text-sm text-gray-100'>
+    <div className='px-3 pt-1 text-sm text-zinc-900 dark:text-gray-100'>
       <p
         ref={textRef}
         className={expanded ? '' : 'line-clamp-2'}
@@ -39,7 +39,7 @@ function PostCaption({ post }) {
       {!expanded && clamped && (
         <button
           onClick={() => setExpanded(true)}
-          className='text-zinc-400 cursor-pointer hover:text-gray-100'
+          className='text-zinc-500 dark:text-zinc-400 cursor-pointer hover:text-zinc-900 dark:hover:text-gray-100'
         >
           more
         </button>

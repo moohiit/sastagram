@@ -71,12 +71,12 @@ const NewGroupDialog = ({ open, onOpenChange, onCreated }) => {
         />
         <div className='max-h-56 overflow-y-auto mt-1 flex flex-col gap-1'>
           {candidates.length === 0 ? (
-            <p className='text-sm text-zinc-400 py-4 text-center'>No people found.</p>
+            <p className='text-sm text-zinc-500 dark:text-zinc-400 py-4 text-center'>No people found.</p>
           ) : (
             candidates.map((f) => (
               <label
                 key={f._id}
-                className='flex items-center gap-3 px-2 py-1.5 rounded-lg hover:bg-zinc-900 cursor-pointer'
+                className='flex items-center gap-3 px-2 py-1.5 rounded-lg hover:bg-zinc-100 dark:hover:bg-zinc-900 cursor-pointer'
               >
                 <input
                   type='checkbox'
@@ -90,7 +90,7 @@ const NewGroupDialog = ({ open, onOpenChange, onCreated }) => {
                     {f.username?.slice(0, 2)?.toUpperCase() || 'US'}
                   </AvatarFallback>
                 </Avatar>
-                <span className='text-sm text-gray-100 truncate'>{f.username}</span>
+                <span className='text-sm text-zinc-900 dark:text-gray-100 truncate'>{f.username}</span>
               </label>
             ))
           )}

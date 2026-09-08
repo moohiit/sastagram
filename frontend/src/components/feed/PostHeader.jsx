@@ -19,7 +19,7 @@ function PostHeader({
   const [menuOpen, setMenuOpen] = useState(false)
 
   const menuItem =
-    'w-full py-3 text-sm text-center cursor-pointer hover:bg-zinc-900 transition-colors border-b border-zinc-800 last:border-b-0'
+    'w-full py-3 text-sm text-center cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors border-b border-zinc-200 dark:border-zinc-800 last:border-b-0'
 
   return (
     <div className='flex items-center justify-between px-3 py-2.5'>
@@ -35,7 +35,7 @@ function PostHeader({
         <div className='flex items-center gap-1.5 min-w-0'>
           <Link
             to={`/profile/${post?.author?._id}`}
-            className='text-sm font-semibold text-gray-100 truncate hover:opacity-70'
+            className='text-sm font-semibold text-zinc-900 dark:text-gray-100 truncate hover:opacity-70'
           >
             {post?.author?.username}
           </Link>
@@ -48,7 +48,7 @@ function PostHeader({
         <DialogTrigger asChild>
           <button
             aria-label='Post options'
-            className='cursor-pointer rounded-full p-1 hover:bg-zinc-900 transition-colors text-gray-100'
+            className='cursor-pointer rounded-full p-1 hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors text-zinc-900 dark:text-gray-100'
           >
             <MoreHorizontal size={20} />
           </button>

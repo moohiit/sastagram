@@ -19,7 +19,7 @@ const ConversationRow = React.memo(function ConversationRow({ convo, isOnline, i
   return (
     <div
       onClick={onClick}
-      className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer rounded-lg transition-colors ${isActive ? 'bg-zinc-900' : 'hover:bg-zinc-900'}`}
+      className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer rounded-lg transition-colors ${isActive ? 'bg-zinc-100 dark:bg-zinc-900' : 'hover:bg-zinc-100 dark:hover:bg-zinc-900'}`}
     >
       <div className='relative shrink-0'>
         <Avatar className='h-11 w-11'>
@@ -27,13 +27,13 @@ const ConversationRow = React.memo(function ConversationRow({ convo, isOnline, i
           <AvatarFallback>{user?.username?.slice(0, 2)?.toUpperCase() || 'US'}</AvatarFallback>
         </Avatar>
         {isOnline && (
-          <span className='absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 ring-2 ring-black' />
+          <span className='absolute bottom-0 right-0 h-3 w-3 rounded-full bg-green-500 ring-2 ring-white dark:ring-black' />
         )}
       </div>
       <div className='flex-1 min-w-0'>
-        <p className='text-sm font-semibold text-gray-100 truncate'>{user?.username}</p>
+        <p className='text-sm font-semibold text-zinc-900 dark:text-gray-100 truncate'>{user?.username}</p>
         <div className='flex items-center gap-1 min-w-0'>
-          <span className={`text-xs truncate ${hasUnread ? 'font-semibold text-gray-100' : 'text-zinc-400'}`}>
+          <span className={`text-xs truncate ${hasUnread ? 'font-semibold text-zinc-900 dark:text-gray-100' : 'text-zinc-500 dark:text-zinc-400'}`}>
             {preview}
           </span>
           {lastMessageAt && (
@@ -106,14 +106,14 @@ const ConversationList = ({ onSelect, selectedUserId, onSelectGroup, activeGroup
   return (
     <div className='flex flex-col h-full min-h-0'>
       <div className='flex items-center justify-between px-4 pt-4 pb-2'>
-        <h1 className='text-xl font-bold text-gray-100'>{user?.username || 'Messages'}</h1>
+        <h1 className='text-xl font-bold text-zinc-900 dark:text-gray-100'>{user?.username || 'Messages'}</h1>
         <div className='flex items-center gap-1'>
           <button
             type='button'
             aria-label='New group'
             title='New group'
             onClick={() => setNewGroupOpen(true)}
-            className='p-1.5 rounded-lg cursor-pointer hover:bg-zinc-900 transition-colors'
+            className='p-1.5 rounded-lg cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors'
           >
             <Users size={24} />
           </button>
@@ -122,7 +122,7 @@ const ConversationList = ({ onSelect, selectedUserId, onSelectGroup, activeGroup
             aria-label='New message'
             title='New message'
             onClick={() => setNewChatOpen(true)}
-            className='p-1.5 rounded-lg cursor-pointer hover:bg-zinc-900 transition-colors'
+            className='p-1.5 rounded-lg cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-900 transition-colors'
           >
             <SquarePen size={24} />
           </button>
@@ -133,7 +133,7 @@ const ConversationList = ({ onSelect, selectedUserId, onSelectGroup, activeGroup
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder='Search'
-          className='h-9 bg-zinc-900 border-none focus-visible:ring-transparent'
+          className='h-9 bg-zinc-100 dark:bg-zinc-900 border-none focus-visible:ring-transparent'
         />
       </div>
       <div className='flex-1 overflow-y-auto px-2 pb-2'>
@@ -146,15 +146,15 @@ const ConversationList = ({ onSelect, selectedUserId, onSelectGroup, activeGroup
               <div
                 key={g._id}
                 onClick={() => onSelectGroup?.(g)}
-                className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer rounded-lg transition-colors ${g._id === activeGroupId ? 'bg-zinc-900' : 'hover:bg-zinc-900'}`}
+                className={`flex items-center gap-3 px-4 py-2.5 cursor-pointer rounded-lg transition-colors ${g._id === activeGroupId ? 'bg-zinc-100 dark:bg-zinc-900' : 'hover:bg-zinc-100 dark:hover:bg-zinc-900'}`}
               >
-                <div className='flex h-11 w-11 items-center justify-center rounded-full bg-zinc-800 shrink-0'>
-                  <Users size={18} className='text-zinc-300' />
+                <div className='flex h-11 w-11 items-center justify-center rounded-full bg-zinc-200 dark:bg-zinc-800 shrink-0'>
+                  <Users size={18} className='text-zinc-600 dark:text-zinc-300' />
                 </div>
                 <div className='flex-1 min-w-0'>
-                  <p className='text-sm font-semibold text-gray-100 truncate'>{g.name}</p>
+                  <p className='text-sm font-semibold text-zinc-900 dark:text-gray-100 truncate'>{g.name}</p>
                   <div className='flex items-center gap-1 min-w-0'>
-                    <span className='text-xs text-zinc-400 truncate'>
+                    <span className='text-xs text-zinc-500 dark:text-zinc-400 truncate'>
                       {g.lastMessage
                         ? `${g.lastSenderId === user?._id ? 'You: ' : ''}${g.lastMessage}`
                         : `${g.participants?.length || 0} members`}
@@ -177,17 +177,17 @@ const ConversationList = ({ onSelect, selectedUserId, onSelectGroup, activeGroup
           <div className='space-y-2 px-2 pt-2'>
             {[...Array(6)].map((_, i) => (
               <div key={i} className='flex items-center gap-3'>
-                <div className='h-11 w-11 rounded-full animate-pulse bg-zinc-800' />
+                <div className='h-11 w-11 rounded-full animate-pulse bg-zinc-200 dark:bg-zinc-800' />
                 <div className='flex-1 space-y-1.5'>
-                  <div className='h-3 w-24 animate-pulse bg-zinc-800 rounded' />
-                  <div className='h-3 w-40 animate-pulse bg-zinc-800 rounded' />
+                  <div className='h-3 w-24 animate-pulse bg-zinc-200 dark:bg-zinc-800 rounded' />
+                  <div className='h-3 w-40 animate-pulse bg-zinc-200 dark:bg-zinc-800 rounded' />
                 </div>
               </div>
             ))}
           </div>
         ) : filtered.length === 0 ? (
           <div className='text-center pt-10 px-4'>
-            <p className='text-sm text-zinc-400'>
+            <p className='text-sm text-zinc-500 dark:text-zinc-400'>
               {query ? 'No conversations match your search.' : 'No conversations yet.'}
             </p>
             {!query && (

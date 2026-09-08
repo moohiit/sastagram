@@ -60,7 +60,7 @@ const FollowButton = ({ userId, className = '', variant = 'button', initialReque
         onClick={followUnfollowHandler}
         disabled={loading}
         className={`text-xs font-semibold cursor-pointer disabled:opacity-50 ${
-          muted ? 'text-zinc-400 hover:text-gray-100' : 'text-blue-400 hover:text-blue-300'
+          muted ? 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-gray-100' : 'text-blue-400 hover:text-blue-300'
         } ${className}`}
       >
         {labelText}
@@ -74,7 +74,7 @@ const FollowButton = ({ userId, className = '', variant = 'button', initialReque
       disabled={loading}
       variant={muted ? 'secondary' : 'default'}
       className={`h-8 px-4 text-sm font-semibold ${
-        muted ? 'text-gray-100' : 'bg-blue-500 hover:bg-blue-600 text-white'
+        muted ? 'text-zinc-900 dark:text-gray-100' : 'bg-blue-500 hover:bg-blue-600 text-white'
       } ${className}`}
     >
       {loading ? <Loader2 className='h-4 w-4 animate-spin' /> : labelText}

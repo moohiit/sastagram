@@ -18,8 +18,8 @@ const SuggestedUsers = ({ variant = 'default' }) => {
     return (
       <div>
         <div className='flex items-center justify-between mb-2'>
-          <h2 className='text-sm font-semibold text-zinc-400'>Suggested for you</h2>
-          <Link to='/search' className='text-xs font-semibold text-gray-100 hover:text-zinc-400'>
+          <h2 className='text-sm font-semibold text-zinc-500 dark:text-zinc-400'>Suggested for you</h2>
+          <Link to='/search' className='text-xs font-semibold text-zinc-900 dark:text-gray-100 hover:text-zinc-600 dark:hover:text-zinc-400'>
             See all
           </Link>
         </div>
@@ -34,7 +34,7 @@ const SuggestedUsers = ({ variant = 'default' }) => {
             <div className='min-w-0 flex-1'>
               <Link
                 to={`/profile/${suggestedUser._id}`}
-                className='block text-sm font-semibold text-gray-100 truncate hover:opacity-80'
+                className='block text-sm font-semibold text-zinc-900 dark:text-gray-100 truncate hover:opacity-80'
               >
                 {suggestedUser.username}
               </Link>
@@ -49,7 +49,7 @@ const SuggestedUsers = ({ variant = 'default' }) => {
 
   return (
     <div>
-      <h2 className='mb-1 px-1 text-sm font-semibold text-zinc-400'>Suggested for you</h2>
+      <h2 className='mb-1 px-1 text-sm font-semibold text-zinc-500 dark:text-zinc-400'>Suggested for you</h2>
       {suggestedUsers.map(suggestedUser => (
         <UserRow key={suggestedUser._id} user={suggestedUser} avatarClass='h-8 w-8' />
       ))}

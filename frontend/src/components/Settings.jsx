@@ -106,20 +106,20 @@ function Settings() {
     }
   };
 
-  const sectionClass = 'bg-black border border-zinc-800 rounded-lg p-4';
+  const sectionClass = 'bg-white dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-lg p-4';
 
   return (
     <div className='w-full max-w-[470px] mx-auto px-4 py-6 flex flex-col gap-4'>
-      <h1 className='text-xl font-bold text-gray-100'>Settings</h1>
+      <h1 className='text-xl font-bold text-zinc-900 dark:text-gray-100'>Settings</h1>
 
       {/* Privacy */}
       <section className={sectionClass}>
         <div className='flex items-center justify-between gap-4'>
           <div className='flex items-start gap-3'>
-            <Lock size={18} className='text-zinc-400 mt-0.5 shrink-0' />
+            <Lock size={18} className='text-zinc-500 dark:text-zinc-400 mt-0.5 shrink-0' />
             <div>
-              <p className='text-sm font-semibold text-gray-100'>Private account</p>
-              <p className='text-xs text-zinc-400 mt-0.5'>
+              <p className='text-sm font-semibold text-zinc-900 dark:text-gray-100'>Private account</p>
+              <p className='text-xs text-zinc-500 dark:text-zinc-400 mt-0.5'>
                 Only approved followers can see your posts. Switching to public
                 accepts all pending requests.
               </p>
@@ -132,7 +132,7 @@ function Settings() {
             disabled={isPrivate === null}
             onClick={togglePrivacy}
             className={`relative h-6 w-11 shrink-0 rounded-full transition-colors cursor-pointer ${
-              isPrivate ? 'bg-blue-500' : 'bg-zinc-700'
+              isPrivate ? 'bg-blue-500' : 'bg-zinc-300 dark:bg-zinc-700'
             } disabled:opacity-50`}
           >
             <span
@@ -147,8 +147,8 @@ function Settings() {
       {/* Password */}
       <section className={sectionClass}>
         <div className='flex items-center gap-2 mb-3'>
-          <KeyRound size={18} className='text-zinc-400' />
-          <p className='text-sm font-semibold text-gray-100'>Change password</p>
+          <KeyRound size={18} className='text-zinc-500 dark:text-zinc-400' />
+          <p className='text-sm font-semibold text-zinc-900 dark:text-gray-100'>Change password</p>
         </div>
         <form onSubmit={changePassword} className='flex flex-col gap-2'>
           <Input
@@ -178,11 +178,11 @@ function Settings() {
       {/* Blocked users */}
       <section className={sectionClass}>
         <div className='flex items-center gap-2 mb-3'>
-          <ShieldOff size={18} className='text-zinc-400' />
-          <p className='text-sm font-semibold text-gray-100'>Blocked accounts</p>
+          <ShieldOff size={18} className='text-zinc-500 dark:text-zinc-400' />
+          <p className='text-sm font-semibold text-zinc-900 dark:text-gray-100'>Blocked accounts</p>
         </div>
         {blocked.length === 0 ? (
-          <p className='text-xs text-zinc-400'>You haven&apos;t blocked anyone.</p>
+          <p className='text-xs text-zinc-500 dark:text-zinc-400'>You haven&apos;t blocked anyone.</p>
         ) : (
           <div className='flex flex-col gap-3'>
             {blocked.map((u) => (
@@ -193,7 +193,7 @@ function Settings() {
                     <AvatarFallback>{u.username?.[0]?.toUpperCase() || 'U'}</AvatarFallback>
                   </Avatar>
                 </Link>
-                <span className='text-sm text-gray-100 flex-1 truncate'>{u.username}</span>
+                <span className='text-sm text-zinc-900 dark:text-gray-100 flex-1 truncate'>{u.username}</span>
                 <Button
                   variant='secondary'
                   className='h-7 px-3 text-xs font-semibold'
@@ -213,7 +213,7 @@ function Settings() {
           <Trash2 size={18} className='text-red-500' />
           <p className='text-sm font-semibold text-red-500'>Delete account</p>
         </div>
-        <p className='text-xs text-zinc-400 mb-3'>
+        <p className='text-xs text-zinc-500 dark:text-zinc-400 mb-3'>
           Permanently removes your profile, posts, comments, likes, messages and
           followers. This cannot be undone.
         </p>

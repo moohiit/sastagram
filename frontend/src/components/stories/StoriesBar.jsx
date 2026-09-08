@@ -132,27 +132,27 @@ function StoriesBar() {
             aria-label='Add to your story'
           >
             <div className='relative'>
-              <div className='rounded-full p-[2px] bg-zinc-800'>
-                <div className='rounded-full p-[2px] bg-black'>
+              <div className='rounded-full p-[2px] bg-zinc-200 dark:bg-zinc-800'>
+                <div className='rounded-full p-[2px] bg-white dark:bg-black'>
                   <Avatar className='h-16 w-16'>
                     <AvatarImage src={cdn(user.profilePicture, 150)} alt={user.username} />
                     <AvatarFallback>{(user.username || 'U').slice(0, 2).toUpperCase()}</AvatarFallback>
                   </Avatar>
                 </div>
               </div>
-              <span className='absolute bottom-0 right-0 h-5 w-5 rounded-full bg-blue-500 border-2 border-black flex items-center justify-center text-white'>
+              <span className='absolute bottom-0 right-0 h-5 w-5 rounded-full bg-blue-500 border-2 border-white dark:border-black flex items-center justify-center text-white'>
                 {uploading ? <Loader2 size={12} className='animate-spin' /> : <Plus size={12} strokeWidth={3} />}
               </span>
             </div>
-            <span className='text-[11px] text-zinc-300 truncate w-full text-center'>Your story</span>
+            <span className='text-[11px] text-zinc-600 dark:text-zinc-300 truncate w-full text-center'>Your story</span>
           </button>
           <input ref={inputRef} onChange={uploadStory} type='file' accept='image/*' className='hidden' />
 
           {loading &&
             [1, 2, 3].map((i) => (
               <div key={i} className='flex flex-col items-center gap-1 shrink-0 w-[74px]'>
-                <div className='h-16 w-16 rounded-full animate-pulse bg-zinc-800' />
-                <div className='h-3 w-12 animate-pulse bg-zinc-800 rounded' />
+                <div className='h-16 w-16 rounded-full animate-pulse bg-zinc-200 dark:bg-zinc-800' />
+                <div className='h-3 w-12 animate-pulse bg-zinc-200 dark:bg-zinc-800 rounded' />
               </div>
             ))}
 
@@ -166,11 +166,11 @@ function StoriesBar() {
               <div
                 className={`rounded-full p-[2px] ${
                   group.allSeen
-                    ? 'bg-zinc-800'
+                    ? 'bg-zinc-200 dark:bg-zinc-800'
                     : 'bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-500'
                 }`}
               >
-                <div className='rounded-full p-[2px] bg-black'>
+                <div className='rounded-full p-[2px] bg-white dark:bg-black'>
                   <Avatar className='h-16 w-16'>
                     <AvatarImage src={cdn(group.user.profilePicture, 150)} alt={group.user.username} />
                     <AvatarFallback>
@@ -179,7 +179,7 @@ function StoriesBar() {
                   </Avatar>
                 </div>
               </div>
-              <span className='text-[11px] text-zinc-300 truncate w-full text-center'>
+              <span className='text-[11px] text-zinc-600 dark:text-zinc-300 truncate w-full text-center'>
                 {group.user._id === user._id ? 'Your story' : group.user.username}
               </span>
             </button>

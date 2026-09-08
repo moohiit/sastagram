@@ -32,7 +32,7 @@ function NotificationItem({ notification }) {
           <>
             <span className='font-semibold text-sm'>commented:</span>
             <br />
-            <span className='text-zinc-400 font-medium'>{notification.text}</span>
+            <span className='text-zinc-500 dark:text-zinc-400 font-medium'>{notification.text}</span>
           </>
         )}
         <span className='text-zinc-500 text-xs ml-2'>{timeAgo(notification.createdAt)}</span>

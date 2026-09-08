@@ -34,8 +34,8 @@ function RightSidebar() {
   if (!user) {
     return (
       <div className='my-10 pr-2'>
-        <div className='bg-black border border-zinc-800 rounded-lg p-4'>
-          <p className='text-sm text-gray-100 mb-3'>
+        <div className='bg-white dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-lg p-4'>
+          <p className='text-sm text-zinc-900 dark:text-gray-100 mb-3'>
             New to SastaGram? Sign up to follow people and share photos.
           </p>
           <div className='flex items-center gap-2'>
@@ -62,10 +62,10 @@ function RightSidebar() {
           </Avatar>
         </Link>
         <div className='min-w-0 flex-1'>
-          <h1 className='text-sm font-semibold text-gray-100 truncate'>
+          <h1 className='text-sm font-semibold text-zinc-900 dark:text-gray-100 truncate'>
             <Link to={`/profile/${user?._id}`}>{user?.username}</Link>
           </h1>
-          <p className='text-sm text-zinc-400 truncate'>
+          <p className='text-sm text-zinc-500 dark:text-zinc-400 truncate'>
             {user?.bio ? user.bio.split(/\s+/).slice(0, 5).join(' ') : 'SastaGram user'}
           </p>
         </div>

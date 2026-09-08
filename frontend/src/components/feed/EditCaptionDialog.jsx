@@ -44,7 +44,7 @@ function EditCaptionDialog({ open, setOpen, post }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className='max-w-md rounded-xl'>
-        <DialogTitle className='text-base font-semibold text-gray-100'>Edit caption</DialogTitle>
+        <DialogTitle className='text-base font-semibold text-zinc-900 dark:text-gray-100'>Edit caption</DialogTitle>
         <DialogDescription className='hidden'>Edit the caption of your post.</DialogDescription>
         <Textarea
           value={caption}

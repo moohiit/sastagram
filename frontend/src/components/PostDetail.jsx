@@ -26,8 +26,8 @@ function SimilarPosts({ postId }) {
 
   if (posts.length === 0) return null
   return (
-    <div className='mt-6 border-t border-zinc-800 pt-4'>
-      <p className='text-sm font-semibold text-zinc-400 mb-3'>More like this</p>
+    <div className='mt-6 border-t border-zinc-200 dark:border-zinc-800 pt-4'>
+      <p className='text-sm font-semibold text-zinc-500 dark:text-zinc-400 mb-3'>More like this</p>
       <div className='grid grid-cols-3 gap-1'>
         {posts.map((p) => (
           <Link key={p._id} to={`/post/${p._id}`} className='aspect-square'>
@@ -86,8 +86,8 @@ function PostDetail() {
   if (status === 'missing') {
     return (
       <div className='flex flex-col items-center justify-center min-h-[60vh] gap-3'>
-        <p className='text-gray-100 font-semibold'>This post isn&apos;t available.</p>
-        <p className='text-sm text-zinc-400'>It may have been deleted.</p>
+        <p className='text-zinc-900 dark:text-gray-100 font-semibold'>This post isn&apos;t available.</p>
+        <p className='text-sm text-zinc-500 dark:text-zinc-400'>It may have been deleted.</p>
         <Link to='/' className='text-sm font-semibold text-blue-400 hover:text-blue-300'>
           Back to home
         </Link>

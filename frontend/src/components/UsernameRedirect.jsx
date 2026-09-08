@@ -33,7 +33,7 @@ function UsernameRedirect() {
   if (missing) {
     return (
       <div className='flex flex-col items-center justify-center min-h-[60vh] gap-3'>
-        <p className='text-gray-100 font-semibold'>@{username} doesn&apos;t exist.</p>
+        <p className='text-zinc-900 dark:text-gray-100 font-semibold'>@{username} doesn&apos;t exist.</p>
         <Link to='/' className='text-sm font-semibold text-blue-400 hover:text-blue-300'>
           Back to home
         </Link>

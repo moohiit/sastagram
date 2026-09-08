@@ -40,7 +40,7 @@ function MessagesPill() {
       type='button'
       onClick={() => navigate('/messages')}
       aria-label='Messages'
-      className='hidden min-[1264px]:flex fixed bottom-6 right-6 z-30 items-center gap-2 rounded-full bg-zinc-900 border border-zinc-800 shadow px-4 py-3 text-sm font-semibold text-gray-100 hover:bg-zinc-800 transition-colors cursor-pointer'
+      className='hidden min-[1264px]:flex fixed bottom-6 right-6 z-30 items-center gap-2 rounded-full bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow px-4 py-3 text-sm font-semibold text-zinc-900 dark:text-gray-100 hover:bg-zinc-300 dark:hover:bg-zinc-800 transition-colors cursor-pointer'
     >
       <MessageCircle size={20} className='shrink-0' />
       <span>Messages</span>

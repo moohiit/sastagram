@@ -52,8 +52,8 @@ function HashtagPage() {
 
   return (
     <div className='w-full max-w-4xl mx-auto px-4 py-6'>
-      <h1 className='text-xl font-bold text-gray-100 mb-1'>#{tag}</h1>
-      <p className='text-sm text-zinc-400 mb-4'>
+      <h1 className='text-xl font-bold text-zinc-900 dark:text-gray-100 mb-1'>#{tag}</h1>
+      <p className='text-sm text-zinc-500 dark:text-zinc-400 mb-4'>
         {posts.length.toLocaleString()} {posts.length === 1 ? 'post' : 'posts'}
         {nextCursor ? '+' : ''}
       </p>
@@ -62,7 +62,7 @@ function HashtagPage() {
           <Loader2 className='h-8 w-8 animate-spin text-zinc-500' />
         </div>
       ) : posts.length === 0 ? (
-        <p className='text-sm text-zinc-400 py-16 text-center'>
+        <p className='text-sm text-zinc-500 dark:text-zinc-400 py-16 text-center'>
           No posts with this hashtag yet.
         </p>
       ) : (

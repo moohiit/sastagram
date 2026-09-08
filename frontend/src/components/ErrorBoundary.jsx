@@ -20,9 +20,9 @@ class ErrorBoundary extends React.Component {
   render() {
     if (this.state.hasError) {
       return (
-        <div className='flex flex-col items-center justify-center min-h-dvh gap-3 bg-black text-center px-4'>
-          <p className='text-lg font-semibold text-gray-100'>Something went wrong.</p>
-          <p className='text-sm text-zinc-400'>Try reloading the page.</p>
+        <div className='flex flex-col items-center justify-center min-h-dvh gap-3 bg-white dark:bg-black text-center px-4'>
+          <p className='text-lg font-semibold text-zinc-900 dark:text-gray-100'>Something went wrong.</p>
+          <p className='text-sm text-zinc-500 dark:text-zinc-400'>Try reloading the page.</p>
           <button
             onClick={() => window.location.reload()}
             className='mt-2 rounded-lg bg-blue-500 hover:bg-blue-600 px-4 py-2 text-sm font-semibold text-white cursor-pointer'

@@ -179,23 +179,23 @@ const GroupThread = ({ groupId, onBack, onLeft }) => {
   return (
     <>
       {/* Header */}
-      <div className='flex items-center gap-3 border-b border-zinc-800 px-4 py-3'>
+      <div className='flex items-center gap-3 border-b border-zinc-200 dark:border-zinc-800 px-4 py-3'>
         <button onClick={onBack} className='md:hidden p-1 -ml-2 cursor-pointer'>
           <ChevronLeft size={22} />
         </button>
-        <div className='flex h-10 w-10 items-center justify-center rounded-full bg-zinc-800 shrink-0'>
-          <Users size={18} className='text-zinc-300' />
+        <div className='flex h-10 w-10 items-center justify-center rounded-full bg-zinc-200 dark:bg-zinc-800 shrink-0'>
+          <Users size={18} className='text-zinc-600 dark:text-zinc-300' />
         </div>
         <div className='flex-1 min-w-0'>
-          <p className='text-sm font-semibold text-gray-100 truncate'>{group?.name}</p>
-          <p className='text-xs text-zinc-400 truncate'>
+          <p className='text-sm font-semibold text-zinc-900 dark:text-gray-100 truncate'>{group?.name}</p>
+          <p className='text-xs text-zinc-500 dark:text-zinc-400 truncate'>
             {group?.participants?.map((p) => p.username).join(', ')}
           </p>
         </div>
         <button
           onClick={leave}
           title='Leave group'
-          className='p-1.5 text-zinc-400 hover:text-red-500 cursor-pointer'
+          className='p-1.5 text-zinc-500 dark:text-zinc-400 hover:text-red-500 cursor-pointer'
         >
           <LogOut size={18} />
         </button>
@@ -214,7 +214,7 @@ const GroupThread = ({ groupId, onBack, onLeft }) => {
           </div>
         )}
         {messages.length === 0 && (
-          <p className='text-sm text-zinc-400 text-center pt-10'>
+          <p className='text-sm text-zinc-500 dark:text-zinc-400 text-center pt-10'>
             No messages yet — say hi to the group 👋
           </p>
         )}
@@ -242,10 +242,10 @@ const GroupThread = ({ groupId, onBack, onLeft }) => {
                   title={msg.createdAt ? new Date(msg.createdAt).toLocaleString() : undefined}
                   className={`${msg.post ? 'p-1.5' : 'px-3.5 py-2'} rounded-2xl text-sm break-words ${
                     msg.deleted
-                      ? 'bg-transparent border border-zinc-800 text-zinc-500 italic'
+                      ? 'bg-transparent border border-zinc-200 dark:border-zinc-800 text-zinc-500 italic'
                       : mine
                         ? 'bg-blue-500 text-white'
-                        : 'bg-zinc-900 text-gray-100'
+                        : 'bg-zinc-100 dark:bg-zinc-900 text-zinc-900 dark:text-gray-100'
                   }`}
                 >
                   {msg.deleted ? (
@@ -255,9 +255,9 @@ const GroupThread = ({ groupId, onBack, onLeft }) => {
                       {msg.post && (
                         <Link
                           to={`/post/${msg.post._id}`}
-                          className='block w-48 bg-black border border-zinc-800 rounded-lg overflow-hidden'
+                          className='block w-48 bg-white dark:bg-black border border-zinc-200 dark:border-zinc-800 rounded-lg overflow-hidden'
                         >
-                          <div className='px-2.5 py-1.5 text-xs font-semibold text-gray-100 truncate'>
+                          <div className='px-2.5 py-1.5 text-xs font-semibold text-zinc-900 dark:text-gray-100 truncate'>
                             {msg.post.author?.username}
                           </div>
                           <img
@@ -282,7 +282,7 @@ const GroupThread = ({ groupId, onBack, onLeft }) => {
 
       {/* Typing indicator */}
       {Object.keys(typers).length > 0 && (
-        <p className='px-4 pb-1 text-xs text-zinc-400'>
+        <p className='px-4 pb-1 text-xs text-zinc-500 dark:text-zinc-400'>
           {Object.keys(typers)
             .map(
               (id) =>
@@ -294,8 +294,8 @@ const GroupThread = ({ groupId, onBack, onLeft }) => {
       )}
 
       {/* Composer */}
-      <div className='p-3 border-t border-zinc-800'>
-        <div className='flex items-center gap-2 border border-zinc-800 rounded-full px-2 py-1'>
+      <div className='p-3 border-t border-zinc-200 dark:border-zinc-800'>
+        <div className='flex items-center gap-2 border border-zinc-200 dark:border-zinc-800 rounded-full px-2 py-1'>
           <Input
             value={text}
             onChange={handleChange}

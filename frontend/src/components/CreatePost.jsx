@@ -186,7 +186,7 @@ function CreatePost({ open, setOpen }) {
   return (
     <Dialog open={open} onOpenChange={(next) => !next && resetAndClose()}>
       <DialogContent className='max-w-lg rounded-xl max-h-[90vh] overflow-y-auto'>
-        <DialogTitle className='text-base font-semibold text-gray-100 text-center'>
+        <DialogTitle className='text-base font-semibold text-zinc-900 dark:text-gray-100 text-center'>
           Create new post
         </DialogTitle>
         <DialogDescription className='hidden'>Share a new photo.</DialogDescription>
@@ -196,7 +196,7 @@ function CreatePost({ open, setOpen }) {
             <AvatarImage src={user?.profilePicture} alt={user?.username} />
             <AvatarFallback>{(user?.username || 'U').slice(0, 2).toUpperCase()}</AvatarFallback>
           </Avatar>
-          <span className='text-sm font-semibold text-gray-100'>{user?.username}</span>
+          <span className='text-sm font-semibold text-zinc-900 dark:text-gray-100'>{user?.username}</span>
         </div>
 
         {imagePreview ? (
@@ -206,13 +206,13 @@ function CreatePost({ open, setOpen }) {
                 src={imagePreview}
                 controls
                 playsInline
-                className='w-full max-h-[320px] object-contain rounded-lg border border-zinc-800 bg-black'
+                className='w-full max-h-[320px] object-contain rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-black'
               />
             ) : (
               <img
                 src={imagePreview}
                 alt='Preview'
-                className='w-full max-h-[320px] object-cover rounded-lg border border-zinc-800'
+                className='w-full max-h-[320px] object-cover rounded-lg border border-zinc-200 dark:border-zinc-800'
               />
             )}
             <button
@@ -234,11 +234,11 @@ function CreatePost({ open, setOpen }) {
             onDragLeave={() => setDragOver(false)}
             onDrop={dropHandler}
             className={`flex flex-col items-center justify-center gap-2 h-56 rounded-lg border-2 border-dashed cursor-pointer transition-colors ${
-              dragOver ? 'border-blue-500 bg-blue-500/10' : 'border-zinc-800 hover:bg-zinc-900'
+              dragOver ? 'border-blue-500 bg-blue-500/10' : 'border-zinc-200 dark:border-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-900'
             }`}
           >
             <ImagePlus size={40} className='text-zinc-500' />
-            <p className='text-sm text-gray-100'>Drag a photo or video here</p>
+            <p className='text-sm text-zinc-900 dark:text-gray-100'>Drag a photo or video here</p>
             <p className='text-xs text-zinc-500'>or click to select from your device</p>
           </div>
         )}
@@ -267,7 +267,7 @@ function CreatePost({ open, setOpen }) {
                   <button
                     key={s}
                     onClick={() => setCaption(s.slice(0, MAX_CAPTION))}
-                    className='text-xs border border-zinc-800 rounded-full px-3 py-1.5 text-gray-100 hover:border-blue-500 hover:text-blue-600 text-left'
+                    className='text-xs border border-zinc-200 dark:border-zinc-800 rounded-full px-3 py-1.5 text-zinc-900 dark:text-gray-100 hover:border-blue-500 hover:text-blue-600 text-left'
                   >
                     {s}
                   </button>
@@ -284,7 +284,7 @@ function CreatePost({ open, setOpen }) {
             onChange={(e) => setCaption(e.target.value)}
             placeholder='Write a caption...'
             disabled={loading}
-            className='min-h-[80px] text-sm border-zinc-800 focus-visible:ring-transparent resize-none'
+            className='min-h-[80px] text-sm border-zinc-200 dark:border-zinc-800 focus-visible:ring-transparent resize-none'
           />
           <div className='flex justify-end mt-1'>
             <span className='text-xs text-zinc-500'>
@@ -307,14 +307,14 @@ function CreatePost({ open, setOpen }) {
           </button>
 
           {pollOpen && (
-            <div className='flex flex-col gap-2 border border-zinc-800 rounded-lg p-3'>
+            <div className='flex flex-col gap-2 border border-zinc-200 dark:border-zinc-800 rounded-lg p-3'>
               <Input
                 value={pollQuestion}
                 maxLength={MAX_POLL_QUESTION}
                 onChange={(e) => setPollQuestion(e.target.value)}
                 placeholder='Ask a question...'
                 disabled={loading}
-                className='h-9 text-sm border-zinc-800 focus-visible:ring-transparent'
+                className='h-9 text-sm border-zinc-200 dark:border-zinc-800 focus-visible:ring-transparent'
               />
               {pollOptions.map((option, index) => (
                 <div key={index} className='flex items-center gap-2'>
@@ -324,7 +324,7 @@ function CreatePost({ open, setOpen }) {
                     onChange={(e) => setPollOption(index, e.target.value)}
                     placeholder={`Option ${index + 1}`}
                     disabled={loading}
-                    className='h-9 text-sm border-zinc-800 focus-visible:ring-transparent'
+                    className='h-9 text-sm border-zinc-200 dark:border-zinc-800 focus-visible:ring-transparent'
                   />
                   {pollOptions.length > MIN_POLL_OPTIONS && (
                     <button

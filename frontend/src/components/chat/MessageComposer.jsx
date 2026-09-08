@@ -136,7 +136,7 @@ const MessageComposer = ({ selectedUser }) => {
   };
 
   return (
-    <div className='p-3 border-t border-zinc-800'>
+    <div className='p-3 border-t border-zinc-200 dark:border-zinc-800'>
       {suggestions.length > 0 && (
         <div className='flex flex-wrap gap-2 pb-2'>
           {suggestions.map((s, i) => (
@@ -147,14 +147,14 @@ const MessageComposer = ({ selectedUser }) => {
                 setSuggestions([]);
                 inputRef.current?.focus();
               }}
-              className='rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1 text-xs text-gray-100 hover:bg-zinc-800 cursor-pointer'
+              className='rounded-full border border-zinc-300 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-900 px-3 py-1 text-xs text-zinc-900 dark:text-gray-100 hover:bg-zinc-300 dark:hover:bg-zinc-800 cursor-pointer'
             >
               {s}
             </button>
           ))}
         </div>
       )}
-      <div className='flex items-center gap-2 border border-zinc-800 rounded-full px-2 py-1'>
+      <div className='flex items-center gap-2 border border-zinc-200 dark:border-zinc-800 rounded-full px-2 py-1'>
         {aiEnabled && (
           <button
             type='button'
@@ -162,7 +162,7 @@ const MessageComposer = ({ selectedUser }) => {
             disabled={suggesting}
             title='Suggest replies'
             aria-label='Suggest replies'
-            className='p-1.5 text-zinc-400 hover:text-blue-400 cursor-pointer disabled:opacity-50'
+            className='p-1.5 text-zinc-500 dark:text-zinc-400 hover:text-blue-400 cursor-pointer disabled:opacity-50'
           >
             {suggesting ? (
               <Loader2 size={16} className='animate-spin' />
