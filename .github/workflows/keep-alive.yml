@@ -11,9 +11,13 @@
 # disables scheduled workflows after 60 days without repo activity.
 name: Keep Render sites awake
 
+# GitHub throttles/skips busy cron slots (:00, :10, ...) — off-peak minutes
+# fire far more reliably. This cron is only the morning alarm clock: the
+# backend's own KEEP_ALIVE_URLS loop keeps both sites awake once woken, so a
+# single successful run per day is enough.
 on:
   schedule:
-    - cron: "*/10 3-14 * * *"
+    - cron: "7,17,27,37,47,57 3-14 * * *"
   workflow_dispatch:
 
 jobs:

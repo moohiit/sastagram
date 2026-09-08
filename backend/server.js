@@ -70,3 +70,32 @@ process.on('uncaughtException', (error) => {
   console.error('UNCAUGHT EXCEPTION:', error);
   shutdown('uncaughtException');
 });
+
+// Render free-tier keep-alive: once this instance is awake, ping the listed
+// public URLs (our own site and any sibling sites) every 10 minutes during
+// 03:00-14:59 UTC (~08:30-20:30 IST). Inbound traffic through Render's proxy
+// resets its 15-minute sleep timer, so the loop is self-sustaining all day —
+// the GitHub Actions cron only has to wake us once each morning. Outside the
+// window nothing is pinged and the instance sleeps, keeping two services
+// within the shared 750 free instance-hours/month.
+//
+// Configure on Render:
+//   KEEP_ALIVE_URLS=https://sastagram.mohitpatel.org/healthz,https://shopease.mohitpatel.org/healthz
+const keepAliveUrls = (process.env.KEEP_ALIVE_URLS || "")
+  .split(",")
+  .map((u) => u.trim())
+  .filter(Boolean);
+if (keepAliveUrls.length > 0) {
+  const tick = () => {
+    const hourUtc = new Date().getUTCHours();
+    if (hourUtc < 3 || hourUtc >= 15) return;
+    for (const url of keepAliveUrls) {
+      fetch(url, { signal: AbortSignal.timeout(60_000) }).catch((error) =>
+        console.error(`keep-alive ping failed (${url}):`, error.message)
+      );
+    }
+  };
+  tick();
+  setInterval(tick, 10 * 60 * 1000).unref();
+  console.log(`Keep-alive pinging ${keepAliveUrls.length} URL(s) during the IST daytime window`);
+}
